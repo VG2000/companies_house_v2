@@ -169,3 +169,15 @@ cython_debug/
 
 # PyPI configuration file
 .pypirc
+
+# Django static and media files
+staticfiles/
+media/
+
+# Other files
+*.sqlite3
+
+# Data folder
+data/
+media/
+extracted_csvs/

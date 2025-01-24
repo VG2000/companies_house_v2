@@ -1,0 +1,30 @@
+# Exclude Python cache files
+__pycache__/
+*.py[cod]
+*.pyo
+
+# Exclude virtual environment directories
+venv/
+env/
+
+# Exclude logs and temporary files
+*.log
+*.tmp
+
+# Exclude media and static files (if they're generated during deployment)
+media/
+staticfiles/
+
+# Exclude Docker-related files (optional, but useful during rebuilds)
+Dockerfile
+docker-compose.yml
+
+# Exclude Git metadata
+.git/
+.gitignore
+
+# Exclude environment variables
+.env
+
+# Exclude database files
+data/

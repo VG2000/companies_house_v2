@@ -1,0 +1,53 @@
+{% extends 'company_data/base.html' %}
+
+{% block title %}Company Detail{% endblock %}
+
+{% block content %}
+<h1>Company Details</h1>
+
+<form method="get" class="mb-4">
+    <div class="mb-3">
+        <label for="company_number">Enter Company Number:</label>
+        <input type="text" id="company_number" name="company_number" class="form-control" required>
+    </div>
+    <button type="submit" class="btn btn-primary">Search</button>
+</form>
+
+{% if company %}
+    <h2>Company Information</h2>
+    <ul>
+        <li><strong>Company Name:</strong> {{ company.company_name }}</li>
+        <li><strong>Company Number:</strong> {{ company.company_number }}</li>
+        <li><strong>Company Category:</strong> {{ company.company_category }}</li>
+        <li><strong>Account Category:</strong> {{ company.accounts_account_category }}</li>
+        <li><strong>Status:</strong> {{ company.company_status }}</li>
+        <li><strong>Incorporation Date:</strong> {{ company.incorporation_date }}</li>
+        <li><strong>Dissolution Date:</strong> {{ company.dissolution_date }}</li>
+        <li><strong>Accounts Next Due Date:</strong> {{ company.accounts_next_due_date }}</li>
+        <li><strong>Accounts Last Made Up Date:</strong> {{ company.accounts_last_made_up_date }}</li>
+        <li><strong>Address:</strong> 
+            {{ company.reg_address_line1 }}, 
+            {{ company.reg_address_line2 }}, 
+            {{ company.reg_address_post_town }}, 
+            {{ company.reg_address_county }},
+            {{ company.reg_address_postcode }}
+        </li>
+        <li><strong>SIC Code 1:</strong> {{ company.sic_code_1 }}</li>
+        <li><strong>SIC Code 2:</strong> {{ company.sic_code_2 }}</li>
+    </ul>
+
+    <h2>Company Files</h2>
+    <ul>
+        {% for file in company_files %}
+            <li class="mb-3">
+                <strong>File URL:</strong> <a href="{{ file.file_url }}" target="_blank">{{ file.file_url }}</a><br>
+                <strong>Process Number:</strong> {{ file.process_number }}<br>
+                <strong>Balance Sheet Date:</strong> {{ file.balance_sheet_date }}<br>
+                <strong>File Type:</strong> {{ file.file_type }}
+            </li>
+        {% endfor %}
+    </ul>
+{% elif error %}
+    <p class="text-danger">{{ error }}</p>
+{% endif %}
+{% endblock %}

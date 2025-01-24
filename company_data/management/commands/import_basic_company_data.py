@@ -1,25 +1,47 @@
 import csv
 import os
 import zipfile
+import time
 from datetime import datetime
+import logging
 from django.core.management.base import BaseCommand
 from company_data.models import Company
 
+# Configure logging
+logging.basicConfig(level=logging.INFO, format='%(asctime)s - %(levelname)s - %(message)s')
+logger = logging.getLogger(__name__)
+
 
 class Command(BaseCommand):
-    help = "Import company data from a zip file containing CSV files"
+    help = "Import company data from a zip file or a standalone CSV file"
 
     def add_arguments(self, parser):
-        parser.add_argument('zip_path', type=str, help="Path to the zip file containing CSV files")
+        parser.add_argument('file_path', type=str, help="Path to the zip file or CSV file")
 
     def handle(self, *args, **kwargs):
-        zip_path = kwargs['zip_path']
-        extract_dir = 'extracted_csvs'
+        file_path = kwargs['file_path']
 
-        # Step 1: Extract the zip file
-        if not zipfile.is_zipfile(zip_path):
-            self.stderr.write(self.style.ERROR("The provided file is not a valid zip file"))
+        # Log the start time
+        start_time = time.time()
+
+        # Check if the provided file is a zip file or CSV
+        if zipfile.is_zipfile(file_path):
+            self.process_zip(file_path)
+        elif file_path.endswith('.csv'):
+            self.stdout.write(f"Processing standalone CSV file: {file_path}")
+            self.process_csv(file_path)
+        else:
+            self.stderr.write(self.style.ERROR("The provided file is neither a valid zip file nor a CSV file"))
             return
+
+        # Log the end time and duration
+        end_time = time.time()
+        duration = end_time - start_time
+        logger.info(f"Processed {file_path} in {duration:.2f} seconds")
+        self.stdout.write(self.style.SUCCESS(f"Processed {file_path} in {duration:.2f} seconds"))
+
+    def process_zip(self, zip_path):
+        extract_dir = 'extracted_csvs'
 
         self.stdout.write(f"Extracting zip file: {zip_path}")
         with zipfile.ZipFile(zip_path, 'r') as zip_ref:
@@ -27,25 +49,25 @@ class Command(BaseCommand):
 
         self.stdout.write(self.style.SUCCESS(f"Extracted files to: {extract_dir}"))
 
-        # Step 2: Process each CSV file in the extracted folder
+        # Process each CSV file in the extracted folder
         for filename in os.listdir(extract_dir):
             if filename.endswith('.csv'):
                 csv_path = os.path.join(extract_dir, filename)
                 self.stdout.write(f"Processing file: {csv_path}")
-                self.import_csv(csv_path)
+                self.process_csv(csv_path)
 
-        # Step 3: Clean up extracted files
-        for filename in os.listdir(extract_dir):
-            os.remove(os.path.join(extract_dir, filename))
-        os.rmdir(extract_dir)
+        # Clean up extracted files
+        self.cleanup_extracted_files(extract_dir)
 
-        self.stdout.write(self.style.SUCCESS('All data imported successfully!'))
-
-    def import_csv(self, file_path):
-        with open(file_path, mode='r', encoding='utf-8') as file:
+    def process_csv(self, file_path):
+        with open(file_path, mode='r', encoding='utf-8-sig') as file:
             reader = csv.DictReader(file)
 
+            # Normalize fieldnames to remove leading/trailing spaces
+            reader.fieldnames = [field.strip() for field in reader.fieldnames]
+        
             companies = []
+
             for row in reader:
                 companies.append(
                     Company(
@@ -86,18 +108,21 @@ class Command(BaseCommand):
                         conf_stmt_last_made_up_date=self.parse_date(row.get('ConfStmtLastMadeUpDate')),
                     )
                 )
-                # Bulk insert in batches of 10,000 to optimize performance
                 if len(companies) >= 10000:
                     Company.objects.bulk_create(companies)
                     companies = []
 
-            # Insert remaining records
             if companies:
                 Company.objects.bulk_create(companies)
 
+    def cleanup_extracted_files(self, extract_dir):
+        for filename in os.listdir(extract_dir):
+            os.remove(os.path.join(extract_dir, filename))
+        os.rmdir(extract_dir)
+
     def parse_date(self, date_str):
         try:
-            return datetime.strptime(date_str, '%Y-%m-%d').date() if date_str else None
+            return datetime.strptime(date_str, '%d/%m/%Y').date() if date_str else None
         except ValueError:
             return None
 

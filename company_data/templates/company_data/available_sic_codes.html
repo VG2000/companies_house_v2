@@ -1,0 +1,20 @@
+{% extends 'company_data/base.html' %}
+
+{% block title %}Available SIC Codes{% endblock %}
+
+{% block content %}
+
+<h2>Available SIC Codes</h2>
+<!-- Back to Filter Page -->
+<p>
+    <a href="{% url 'filter_companies' %}" class="btn btn-primary">Back to Filter</a>
+</p>
+<ul>
+    {% for sic_code in unique_sic_codes %}
+        <li>{{ sic_code }}</li>
+    {% endfor %}
+</ul>
+
+
+
+{% endblock %}
