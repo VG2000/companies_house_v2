@@ -1,0 +1,10 @@
+{% extends "admin/change_list.html" %}
+
+{% block content %}
+    <div class="precompute-section" style="margin-bottom: 20px;">
+        <a href="{% url 'admin:precompute_unique_values' %}" class="button" style="background-color: #007bff; color: white; text-decoration: none; padding: 10px 20px; border-radius: 5px;">
+            Precompute Unique Values
+        </a>
+    </div>
+    {{ block.super }}
+{% endblock %}

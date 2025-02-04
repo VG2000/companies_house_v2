@@ -31,5 +31,4 @@ RUN chmod +x /app/startup.sh
 # Expose the app's port
 EXPOSE 8000
 
-# Use the startup script as the container's command
-CMD ["/app/startup.sh"]
+

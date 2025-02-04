@@ -1,0 +1,33 @@
+{% extends 'company_data/base.html' %}
+
+{% block title %}Company Detail{% endblock %}
+
+{% block content %}
+
+<h1>Search for a Company</h1>
+
+    <form method="POST">
+        {% csrf_token %}
+        <label for="company_number">Company Number:</label>
+        <input type="text" id="company_number" name="company_number" required>
+        <br><br>
+        <label for="company_data">Data Type:</label><br>
+        <input type="radio" id="company_data" name="data_type" value="company_data" {% if data_type == "company_data" %}checked{% endif %}>
+        <label for="company_data">Company Data</label><br>
+        <input type="radio" id="filing_history" name="data_type" value="filing_history" {% if data_type == "filing_history" %}checked{% endif %}>
+        <label for="filing_history">Filing History</label>
+        <br><br>
+        <button type="submit">Search</button>
+    </form>
+
+    {% if company_data %}
+    <h2>Company Data:</h2>
+    <pre>{{ company_data }}</pre>
+    {% elif error %}
+    <h2>Error:</h2>
+    <p>{{ error }}</p>
+    {% endif %}
+
+    <p>Your IP Address: {{ ip_address }}</p>
+
+{% endblock %}

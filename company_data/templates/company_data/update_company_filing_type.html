@@ -1,0 +1,68 @@
+{% extends 'company_data/base.html' %}
+
+{% block title %}Update Filing Type{% endblock %}
+
+{% block content %}
+
+<h1>Update Full Accounts Paper Filed</h1>
+    <p>Total Companies with <code>current_full_accounts=True</code>: <strong>{{ full_accounts_count }}</strong></p>
+    <p>Total Companies with <code>last_full_statement_url not Null</code>: <strong>{{ electronic_filings_count }}</strong></p>
+
+
+    <button id="update-button" class="btn btn-primary">Update Full Accounts</button>
+    <button id="download-button" class="btn btn-primary">Download Full Accounts</button>
+
+    <div id="result"></div>
+
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.addEventListener("DOMContentLoaded", function () {
+    function handleFetch(url, confirmationMessage, resultDivId) {
+        if (!confirm(confirmationMessage)) {
+            return;
+        }
+
+        fetch(url, {
+            method: "POST",
+            headers: {
+                "X-CSRFToken": "{{ csrf_token }}",
+            },
+        })
+        .then((response) => response.json())
+        .then((data) => {
+            const resultDiv = document.getElementById(resultDivId);
+            if (data.status === "success") {
+                resultDiv.innerHTML = `<p style="color: green;">${data.message}</p>`;
+            } else {
+                resultDiv.innerHTML = `<p style="color: red;">Error: ${data.message}</p>`;
+            }
+        })
+        .catch((error) => {
+            console.error("Error:", error);
+        });
+    }
+
+    // Update full accounts paper filed
+    document.getElementById("update-button").addEventListener("click", function () {
+        handleFetch(
+            "{% url 'update_full_accounts_paper_filed' %}",
+            "Are you sure you want to update full accounts paper filed?",
+            "update-result"
+        );
+    });
+
+    // Download last full statements
+    document.getElementById("download-button").addEventListener("click", function () {
+        handleFetch(
+            "{% url 'download_last_full_statements' %}",
+            "Are you sure you want to download the last full statements?",
+            "download-result"
+        );
+    });
+});
+
+</script>
+
+{% endblock %}

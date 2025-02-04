@@ -39,6 +39,8 @@ INSTALLED_APPS = [
     'django.contrib.messages',
     'django.contrib.staticfiles',
     'company_data',
+    'django_filters',
+    'django.contrib.humanize',
 ]
 
 MIDDLEWARE = [
@@ -137,3 +139,39 @@ MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
 # https://docs.djangoproject.com/en/5.1/ref/settings/#default-auto-field
 
 DEFAULT_AUTO_FIELD = 'django.db.models.BigAutoField'
+
+LOGGING = {
+    'version': 1,
+    'disable_existing_loggers': False,
+    'formatters': {
+        'verbose': {
+            'format': '{levelname} {asctime} {module} {message}',
+            'style': '{',
+        },
+        'simple': {
+            'format': '{levelname} {message}',
+            'style': '{',
+        },
+    },
+    'handlers': {
+        'file': {
+            'level': 'DEBUG',
+            'class': 'logging.FileHandler',
+            'filename': 'application.log',  # Save logs to a dedicated application log file
+            'formatter': 'verbose',
+        },
+    },
+    'loggers': {
+        'django': {
+            'handlers': ['file'],
+            'level': 'WARNING',  # Only log warnings and above for Django internals
+            'propagate': False,
+        },
+        'company_data': { 
+            'handlers': ['file'],
+            'level': 'DEBUG',  # Log all debug and above messages for your application
+            'propagate': False,
+        },
+    },
+}
+

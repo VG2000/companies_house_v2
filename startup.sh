@@ -1,11 +1,18 @@
 #!/bin/bash
 
+set -e
+
 echo "Starting Django app..."
 
-# Apply database migrations
-echo "Applying database migrations..."
-python manage.py makemigrations
-python manage.py migrate
+# Apply migrations only if there are unapplied migrations
+if python manage.py showmigrations | grep '\[ \]'; then
+    echo "Applying database migrations..."
+    python manage.py makemigrations
+    python manage.py migrate
+else
+    echo "No migrations to apply."
+fi
+
 
 # Collect static files (if applicable)
 echo "Collecting static files..."
