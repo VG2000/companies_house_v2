@@ -10,6 +10,12 @@ from .views import (company_filter_view, home_view,
                     download_last_full_statements,
                     process_all_statements,
                     financial_statements_list,
+                    get_last_full_statement_file_type,
+                    get_last_full_statement_pdf,
+                    model_field_counts,
+                    statement_admin,
+                    add_to_interest,
+                    company_of_interest_list,
                     )
 
 urlpatterns = [
@@ -23,7 +29,13 @@ urlpatterns = [
     path('update-full-accounts/', update_full_accounts_paper_filed, name='update_full_accounts_paper_filed'),
     path('download-last-full-accounts/', download_last_full_statements, name='download_last_full_statements'),
     path('update-file-type/', show_update_full_accounts_page, name='show_update_full_accounts_page'),
-    path("process-statements/", process_all_statements, name="process_statements"),
+    path("process-statements/", process_all_statements, name="process_all_statements"),
     path("financial-statements/", financial_statements_list, name="financial_statements_list"),
+    path("statement-admin/", statement_admin, name="statement_admin"),
+    path("trigger-last-statement/", get_last_full_statement_file_type, name="get_last_full_statement_file_type"),
+    path("get-last-full-statement-pdf/", get_last_full_statement_pdf, name="get_last_full_statement_pdf"),
+    path("model-field-counts/", model_field_counts, name="model_field_counts"),
+    path("add-to-interest/", add_to_interest, name="add_to_interest"),
+    path("companies-of-interest/", company_of_interest_list, name="company_of_interest_list"),
 ]
 

@@ -1,7 +1,5 @@
 from django.db import models
 
-from django.db import models
-
 class Company(models.Model):
     company_name = models.CharField(max_length=255, null=True, blank=True)
     company_number = models.CharField(max_length=50, unique=True, null=True, blank=True)
@@ -48,6 +46,8 @@ class Company(models.Model):
     def __str__(self):
         return self.company_name
 
+
+# NOT SURE I NEED THIS MODEL?============================================================
 class CompanyFiles(models.Model):
     file_url = models.URLField() 
     process_number = models.CharField(max_length=20)
@@ -70,9 +70,6 @@ class UniqueValuesCache(models.Model):
     def __str__(self):
         return self.key
 
-
-from django.db import models
-
 class FinancialStatement(models.Model):
     # Store necessary fields from the Company model
     company_number = models.CharField(max_length=50, db_index=True)
@@ -80,8 +77,14 @@ class FinancialStatement(models.Model):
     sic_code_1 = models.CharField(max_length=255, null=True, blank=True)
     reg_address_county = models.CharField(max_length=255, null=True, blank=True)
     reg_address_postcode = models.CharField(max_length=50, null=True, blank=True)
+    reg_address_line1 = models.CharField(max_length=255, null=True, blank=True)
+    reg_address_line2 = models.CharField(max_length=255, null=True, blank=True)
+    reg_address_post_town = models.CharField(max_length=255, null=True, blank=True)
 
-        # Balance Sheet
+    # Meta Data
+    report_end_date = models.DateField(null=True, blank=True)
+
+    # Balance Sheet
     average_employees = models.IntegerField(null=True, blank=True)
     turnover_revenue = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True)
     cost_of_sales = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True)
@@ -133,3 +136,7 @@ class FinancialStatement(models.Model):
     def __str__(self):
         return f"Financial Statement for {self.company_number} - {self.company_name}"
 
+class CompanyOfInterest(models.Model):
+    company_number = models.CharField(max_length=50, db_index=True, unique=True)
+    company_name = models.CharField(max_length=255, null=True, blank=True)
+    sic_code_1 = models.CharField(max_length=255, null=True, blank=True)

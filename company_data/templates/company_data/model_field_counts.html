@@ -1,0 +1,67 @@
+{% extends "company_data/base.html" %}
+{% load humanize %}
+
+{% block content %}
+<div class="container mt-4">
+    <h1 class="mb-4">Model Field Counts</h1>
+    <button id="refresh-button" class="btn btn-primary mb-3">Refresh Cache</button>
+    <div class="accordion" id="modelAccordion">
+        {% for model in models_data %}
+        <div class="accordion-item">
+            <h2 class="accordion-header" id="heading{{ forloop.counter }}">
+                <button class="accordion-button" type="button" data-bs-toggle="collapse" data-bs-target="#collapse{{ forloop.counter }}" aria-expanded="true" aria-controls="collapse{{ forloop.counter }}">
+                    {{ model.model_name }} (Total Records: {{ model.total_records|intcomma }})
+                </button>
+            </h2>
+            <div id="collapse{{ forloop.counter }}" class="accordion-collapse collapse" aria-labelledby="heading{{ forloop.counter }}" data-bs-parent="#modelAccordion">
+                <div class="accordion-body">
+                    <table class="table table-striped table-bordered">
+                        <thead>
+                            <tr>
+                                <th>Field Name</th>
+                                <th>Non-Null Count</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for field in model.fields %}
+                            <tr>
+                                <td>{{ field.field_name }}</td>
+                                <td>{{ field.non_null_count }}</td>
+                            </tr>
+                            {% empty %}
+                            <tr>
+                                <td colspan="2" class="text-center">No fields available</td>
+                            </tr>
+                            {% endfor %}
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+        {% empty %}
+        <p>No models found in the project.</p>
+        {% endfor %}
+    </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+<script>
+    document.getElementById("refresh-button").addEventListener("click", function () {
+        fetch("{% url 'model_field_counts' %}?refresh=true", {
+            method: "GET",
+        })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === "success") {
+                    location.reload();  // Reload the page to fetch fresh data
+                } else {
+                    alert("Failed to refresh data.");
+                }
+            })
+            .catch(error => console.error("Error refreshing data:", error));
+    });
+</script>
+{% endblock %}
+
+

@@ -3,22 +3,24 @@ import json
 import os
 import mimetypes
 from django.db.models import Q
+from django.core.cache import cache
 from django.shortcuts import render
 from django import forms
-from django.core.paginator import Paginator
+from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from company_data.models import Company, CompanyFiles, UniqueValuesCache
 from django.shortcuts import render
 from django.http import JsonResponse
+from django.apps import apps
 import requests
 import base64
 import logging
 import json
 import time
-from company_data.models import Company, FinancialStatement
+from company_data.models import Company, FinancialStatement, CompanyOfInterest
 from company_data.utils import parse_and_save_financial_statement
-from company_data.filters import FinancialStatementFilter
+
 
 
 # Configure logging
@@ -34,6 +36,165 @@ SAVE_PATH = os.path.abspath("./statements")  # Saves to ./statements/
 
 # Ensure the directory exists
 os.makedirs(SAVE_PATH, exist_ok=True)
+
+def statement_admin(request):
+    return render(request, 'company_data/statement_admin.html')
+
+def get_first_aa_document_url(response):
+    """
+    Extracts the document_metadata URL for the first filing history item with type "AA".
+    """
+    try:
+        filing_history = response.json()  # Parse the response JSON
+        items = filing_history.get("items", [])
+        for item in items:
+            if item.get("type") == "AA":  # Find the first "type": "AA"
+                document_metadata = item.get("links", {}).get("document_metadata")
+                if document_metadata:
+                    return f"{document_metadata}" 
+        return None
+    except Exception as e:
+        logger.error(f"Error extracting document URL: {e}")
+        return None
+
+
+def get_last_full_statement_pdf(request):
+   pass
+            
+
+def get_last_full_statement_file_type(request):
+
+    if request.method == "POST":
+        try:
+            logger.debug("Initiating download_last_full_statements")
+            sleep_time = 0.8  # Wait time between requests (to stay within rate limit)
+            # Get companies with non-null and non-empty last_full_statement_url
+            companies = Company.objects.exclude(last_full_statement_url__isnull=True).exclude(last_full_statement_url="")[:400]
+            # company_number='00056547'
+            # companies = Company.objects.filter(
+            #     company_number=company_number
+            # )
+            count_co = companies.count()
+
+            print("Number of companies: ",count_co)
+
+            # logger.info(f"Fetching document metadata for company {company_number} from {metadata_url}")
+
+            for company in companies:
+                metadata_url = company.last_full_statement_url  # This is the metadata URL
+                company_number = company.company_number
+
+                if not metadata_url:
+                    logger.warning(f"Skipping {company_number}: No last_full_statement_url found")
+                    continue  # Skip if no URL is found
+
+                 # Check if file already exists
+                existing_files = [
+                    f"{company_number}.xml",
+                    f"{company_number}.xhtml",
+                    f"{company_number}.pdf"
+                ]
+                if any(os.path.exists(os.path.join(SAVE_PATH, file)) for file in existing_files):
+                    logger.info(f"Skipping {company_number}: File already exists in {SAVE_PATH}")
+                    continue  # Skip downloading
+
+                logger.info(f"Fetching document metadata for company {company_number} from {metadata_url}")
+
+                try:
+                    # Fetch the metadata JSON
+                    response = requests.get(metadata_url, headers=HEADERS, timeout=10)
+                    response.raise_for_status()
+
+                    content_type = response.headers.get("Content-Type", "")
+
+                    # If JSON is returned, extract document download URL
+                    if "application/json" in content_type:
+                        metadata = response.json()
+                        logger.info(f"Metadata received for {company_number}: {metadata}")
+
+                        # Extract document download links from "resources"
+                        resources = metadata.get("resources", {})
+                        xml_available = "application/xml" in resources
+                        xhtml_available = "application/xhtml+xml" in resources
+                        pdf_available = "application/pdf" in resources
+                        file_extension = ''
+                        document_url = ''
+
+
+                        # Prioritize XML > XHTML > PDF
+                        if xml_available:
+                            document_url = metadata["links"]["document"] 
+                            file_extension = "xml"
+                            accept_header = "application/xml"
+                        elif xhtml_available:
+                            document_url = metadata["links"]["document"]
+                            file_extension = "xhtml"
+                            accept_header = "application/xhtml+xml"
+                        elif pdf_available:
+                            document_url = metadata["links"]["document"] 
+                            file_extension = "pdf"
+                            accept_header = "application/pdf"
+                        else:
+                            logger.error(f"No downloadable document found for {company_number}")
+                            continue
+
+                        logger.info(f"Downloading {file_extension} document for {company_number} from {document_url}")
+                        
+                         # Set headers dynamically
+                        headers = {"Authorization": AUTH_HEADER,
+                            "Accept": accept_header,  # Dynamically set the Accept header based on file type
+                        }
+
+                        try:
+                            logger.info(f"Attempting to download {file_extension} document for {company_number} from {document_url}")
+                            document_response = requests.get(document_url, headers=headers, timeout=20)
+                            document_response.raise_for_status()
+
+                            # Get the actual Content-Type from the response
+                            content_type = document_response.headers.get("Content-Type", "").lower()
+                            logger.info(f"Downloaded file Content-Type: {content_type}")
+
+                            # Map Content-Type to expected extensions
+                            mime_type_to_extension = {
+                                "application/xhtml+xml": "xhtml",
+                                "application/pdf": "pdf",
+                            }
+
+                            # Validate the Content-Type and adjust the file extension if necessary
+                            if content_type in mime_type_to_extension:
+                                actual_file_extension = mime_type_to_extension[content_type]
+                                if actual_file_extension != file_extension:
+                                    logger.warning(
+                                        f"Expected file type {file_extension}, but got {actual_file_extension}. Adjusting file extension."
+                                    )
+                                    file_extension = actual_file_extension
+                            else:
+                                logger.error(
+                                    f"Unexpected Content-Type '{content_type}' for {company_number}. Skipping download."
+                                )
+                                continue  # Skip processing if the Content-Type is unknown
+
+                            # Save the file with the correct extension
+                            file_path = os.path.join(SAVE_PATH, f"{company_number}.{file_extension}")
+                            with open(file_path, "wb") as file:
+                                file.write(document_response.content)
+                            logger.info(f"Successfully saved {file_extension} document for {company_number} at {file_path}")
+
+                        except requests.exceptions.RequestException as e:
+                            logger.error(f"Failed to download {file_extension} document for {company_number}: {e}")
+                            continue
+
+                except requests.exceptions.RequestException as e:
+                    logger.error(f"Error downloading statement for {company_number}: {e}")
+                    continue
+
+        # Sleep to comply with rate limit
+                time.sleep(sleep_time)
+        except:
+            pass
+
+    return JsonResponse({"status": "success", "message": f"Number of companies: {count_co}"})
+
 
 def download_last_full_statements(request):
     if request.method == "POST":
@@ -86,23 +247,36 @@ def download_last_full_statements(request):
 
                         # Prioritize XML > XHTML > PDF
                         if xml_available:
-                            document_url = metadata["links"]["document"] 
+                            document_url = metadata["links"]["document"]
                             file_extension = "xml"
+                            accept_header = "application/xml"
                         elif xhtml_available:
                             document_url = metadata["links"]["document"]
                             file_extension = "xhtml"
+                            accept_header = "application/xhtml+xml"
                         elif pdf_available:
-                            document_url = metadata["links"]["document"] 
+                            document_url = metadata["links"]["document"]
                             file_extension = "pdf"
+                            accept_header = "application/pdf"
                         else:
                             logger.error(f"No downloadable document found for {company_number}")
                             continue
 
                         logger.info(f"Downloading {file_extension} document for {company_number} from {document_url}")
 
+                        # Set headers dynamically
+                        headers = {
+                            "Authorization": f"Bearer {API_KEY}",
+                            "Accept": accept_header,  # Dynamically set the Accept header based on file type
+                        }
                         # Fetch the actual document
-                        document_response = requests.get(document_url, headers=HEADERS, timeout=20)
-                        document_response.raise_for_status()
+                        try:
+                            document_response = requests.get(document_url, headers=headers, timeout=20)
+                            document_response.raise_for_status()
+                            logger.info(f"Successfully downloaded {file_extension} document for {company_number}")
+                        except requests.exceptions.RequestException as e:
+                            logger.error(f"Failed to download {file_extension} document for {company_number}: {e}")
+                            continue
 
                         # Define file path (Save in current directory for testing)
                         file_path = os.path.join(SAVE_PATH, f"{company_number}.{file_extension}")
@@ -154,7 +328,7 @@ def update_full_accounts_paper_filed(request):
             logger.debug("Initiating update_full_accounts_paper_filed")
             companies = Company.objects.filter(current_full_accounts=True)
             updated_count = 0
-            sleep_time = 0.6  # Wait time between requests (to stay within rate limit)
+            sleep_time = 0.8  # Wait time between requests (to stay within rate limit)
 
             for company in companies:
                 company_number = company.company_number
@@ -219,7 +393,6 @@ def show_update_full_accounts_page(request):
 def search_company(request):
     company_data = None
     error = None
-    ip_address = get_client_ip(request)
     company_number = None
     data_type = "company_data"  # Default to Company Data
 
@@ -258,21 +431,9 @@ def search_company(request):
     return render(request, 'company_data/company_search.html', {
         'company_data': company_data,
         'error': error,
-        'ip_address': ip_address,
         'company_number': company_number,
         'data_type': data_type
     })
-
-
-def get_client_ip(request):
-    """Get the client's IP address."""
-    x_forwarded_for = request.META.get('HTTP_X_FORWARDED_FOR')
-    if x_forwarded_for:
-        ip = x_forwarded_for.split(',')[0]
-    else:
-        ip = request.META.get('REMOTE_ADDR')
-    return ip
-
 
 
 class CompanyFilterForm(forms.Form):
@@ -561,23 +722,161 @@ def process_all_statements(request):
     return JsonResponse({"status": "error", "message": "Invalid request method."})
 
 
+
+
 def financial_statements_list(request):
-    """Filters and paginates financial statements."""
-    # Filter the queryset using FinancialStatementFilter
-    filtered_statements = FinancialStatementFilter(
-        request.GET, 
-        queryset=FinancialStatement.objects.all()
-    )
+    financial_statements = FinancialStatement.objects.all()
 
-    # Paginate the filtered queryset (25 items per page)
-    paginator = Paginator(filtered_statements.qs, 25)
-    page_number = request.GET.get("page")
-    page_obj = paginator.get_page(page_number)
+    # Turnover Revenue Filters
+    turnover_revenue_min = request.GET.get("turnover_revenue_min")
+    turnover_revenue_max = request.GET.get("turnover_revenue_max")
 
-    # Render the template with the paginated data
-    return render(request, "company_data/process_statements.html", {
-        "financial_statements": page_obj if page_obj.object_list else None,  # Pass None if no records
-        "page_obj": page_obj,
-    })
+    if turnover_revenue_min:
+        try:
+            # Convert to a float, multiply by 1,000,000, and filter
+            turnover_revenue_min = float(turnover_revenue_min) * 1_000_000
+            financial_statements = financial_statements.filter(turnover_revenue__gte=turnover_revenue_min)
+        except ValueError:
+            # Log an error or handle invalid input
+            logger.error(f"Invalid turnover_revenue_min value: {request.GET.get('turnover_revenue_min')}")
+
+    if turnover_revenue_max:
+        try:
+            # Convert to a float, multiply by 1,000,000, and filter
+            turnover_revenue_max = float(turnover_revenue_max) * 1_000_000
+            financial_statements = financial_statements.filter(turnover_revenue__lte=turnover_revenue_max)
+        except ValueError:
+            # Log an error or handle invalid input
+            logger.error(f"Invalid turnover_revenue_max value: {request.GET.get('turnover_revenue_max')}")
+
+   # Operating Profit/Loss Filters
+    operating_profit_loss_min = request.GET.get("operating_profit_loss_min")
+    operating_profit_loss_max = request.GET.get("operating_profit_loss_max")
+
+    if operating_profit_loss_min:
+        try:
+            # Convert to a float, multiply by 1,000,000, and filter
+            operating_profit_loss_min = float(operating_profit_loss_min) * 1_000_000
+            financial_statements = financial_statements.filter(operating_profit_loss__gte=operating_profit_loss_min)
+        except ValueError:
+            # Log an error or handle invalid input
+            logger.error(f"Invalid operating_profit_loss_min value: {request.GET.get('operating_profit_loss_min')}")
+
+    if operating_profit_loss_max:
+        try:
+            # Convert to a float, multiply by 1,000,000, and filter
+            operating_profit_loss_max = float(operating_profit_loss_max) * 1_000_000
+            financial_statements = financial_statements.filter(operating_profit_loss__lte=operating_profit_loss_max)
+        except ValueError:
+            # Log an error or handle invalid input
+            logger.error(f"Invalid operating_profit_loss_max value: {request.GET.get('operating_profit_loss_max')}")
+
+     # Add ordering to the QuerySet (e.g., by primary key or report_end_date)
+    financial_statements = financial_statements.order_by('company_name') 
+
+    # Pagination
+    page = request.GET.get("page", 1)  # Default to page 1 if no page parameter
+    paginator = Paginator(financial_statements, 25)  # Show 25 records per page
+
+    try:
+        financial_statements_page = paginator.page(page)
+    except PageNotAnInteger:
+        financial_statements_page = paginator.page(1)  # Return first page if page is not an integer
+    except EmptyPage:
+        financial_statements_page = paginator.page(paginator.num_pages)  # Return last page if out of range
+
+    num_statements = financial_statements.count()
+    # Pass the filtered results and pagination object to the template
+    context = {
+        "financial_statements": financial_statements_page,
+        "paginator": paginator,
+        "num_statements":num_statements
+    }
+    return render(request, "company_data/financial_statements_list.html", context)
+
+def model_field_counts(request):
+    """
+    View to display all models, their fields, and non-null counts for each field.
+    """
+
+    cache_key = "model_field_counts"
+
+    # Handle refresh logic
+    if request.GET.get("refresh") == "true":
+        cache.delete(cache_key)
+        return JsonResponse({"status": "success", "message": "Cache cleared and data refreshed."})
+
+    # Fetch from cache
+    cached_data = cache.get(cache_key)
+    if cached_data:
+        return render(request, "company_data/model_field_counts.html", {"models_data": cached_data})
+
+    # If no cache exists, calculate data
+    all_models_data = []
+
+    for model in apps.get_models():
+        model_name = model._meta.verbose_name.title()
+        model_fields = model._meta.get_fields()
+
+        if model._meta.proxy or not model._meta.managed:
+            continue
+
+        field_data = []
+        for field in model_fields:
+            if hasattr(field, "attname"):
+                field_name = field.name
+                non_null_count = model.objects.exclude(**{f"{field_name}__isnull": True}).count()
+                field_data.append({"field_name": field_name, "non_null_count": non_null_count})
+
+        all_models_data.append({
+            "model_name": model_name,
+            "fields": field_data,
+            "total_records": model.objects.count(),
+        })
+
+    # Cache data for 24 hours
+    cache.set(cache_key, all_models_data, timeout=86400)
+
+    return render(request, "company_data/model_field_counts.html", {"models_data": all_models_data})
 
 
+@csrf_exempt
+def add_to_interest(request):
+    if request.method == "POST":
+        try:
+            # Parse JSON request body
+            body = json.loads(request.body)
+            company_number = body.get("company_number")
+
+            if not company_number:
+                return JsonResponse({"status": "error", "message": "Company number is required"}, status=400)
+
+            # Fetch the company details
+            company = Company.objects.filter(company_number=company_number).first()
+
+            if not company:
+                return JsonResponse({"status": "error", "message": "Company not found"}, status=404)
+
+            # Add the company to CompanyOfInterest
+            CompanyOfInterest.objects.get_or_create(
+                company_number=company.company_number,
+                defaults={
+                    "company_name": company.company_name,
+                    "sic_code_1": company.sic_code_1,
+                },
+            )
+
+            return JsonResponse({"status": "success", "message": "Company added to interests successfully"})
+
+        except Exception as e:
+            return JsonResponse({"status": "error", "message": str(e)}, status=500)
+
+    return JsonResponse({"status": "error", "message": "Invalid request method"}, status=405)
+
+
+def company_of_interest_list(request):
+    """
+    View to display all rows from the CompanyOfInterest model in a Bootstrap table.
+    """
+    companies_of_interest = CompanyOfInterest.objects.all()
+    return render(request, "company_data/company_of_interest_list.html", {"companies_of_interest": companies_of_interest})

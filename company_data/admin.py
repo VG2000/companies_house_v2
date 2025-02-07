@@ -1,5 +1,5 @@
 from django.contrib import admin, messages
-from .models import Company, CompanyFiles, UniqueValuesCache, FinancialStatement
+from .models import Company, CompanyFiles, UniqueValuesCache, FinancialStatement, CompanyOfInterest
 from django.urls import path
 from django.http import HttpResponseRedirect
 from django.urls import reverse
@@ -8,7 +8,6 @@ class CompanyAdmin(admin.ModelAdmin):
     list_display = ('company_name', 'company_number', 'current_full_accounts','full_accounts_paper_filed')
     list_filter = ('current_full_accounts','full_accounts_paper_filed',)
     search_fields = ('company_name', 'company_number')
-
 
 class UniqueValuesCacheAdmin(admin.ModelAdmin):
     change_list_template = "admin/uniquevaluescache_changelist.html"
@@ -44,7 +43,7 @@ admin.site.register(Company, CompanyAdmin)
 admin.site.register(UniqueValuesCache, UniqueValuesCacheAdmin)
 admin.site.register(CompanyFiles)
 admin.site.register(FinancialStatement)
-
+admin.site.register(CompanyOfInterest)
 # Customize the admin site title
 admin.site.site_header = "Jackson Sq Admin"
 admin.site.site_title = "Jackson Sq Admin Portal"

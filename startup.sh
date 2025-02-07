@@ -3,7 +3,8 @@
 set -e
 
 echo "Starting Django app..."
-
+echo "Starting one off migration..."
+python manage.py migrate
 # Apply migrations only if there are unapplied migrations
 if python manage.py showmigrations | grep '\[ \]'; then
     echo "Applying database migrations..."

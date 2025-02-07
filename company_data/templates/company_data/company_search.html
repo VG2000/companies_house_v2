@@ -4,7 +4,7 @@
 
 {% block content %}
 
-<h1>Search for a Company</h1>
+<h1 class="mb-4">Search Companies House</h1>
 
     <form method="POST">
         {% csrf_token %}
@@ -27,7 +27,5 @@
     <h2>Error:</h2>
     <p>{{ error }}</p>
     {% endif %}
-
-    <p>Your IP Address: {{ ip_address }}</p>
 
 {% endblock %}

@@ -1,0 +1,68 @@
+{% extends "company_data/base.html" %} 
+
+{% block content %}
+<div class="container mt-4">
+    <h2>Statement Admin</h2>
+
+    <!-- Button to trigger the get_last_full_statement_file_type view -->
+    <button id="trigger-last-full-statement-btn" class="btn btn-primary">Download Last Full Statements</button>
+
+    <!-- Button to trigger the process_all_statements view -->
+    <button id="trigger-process-statements-btn" class="btn btn-secondary">Process Downloaded Statements To DB</button>
+
+    <!-- Status message -->
+    <div id="status-message" class="alert d-none mt-3"></div>
+</div>
+
+<script>
+    function triggerView(url, statusMessageElement, buttonElement) {
+        // Show a loading message
+        statusMessageElement.className = "alert alert-info";
+        statusMessageElement.textContent = "Processing request...";
+
+        // Disable the button during processing
+        buttonElement.disabled = true;
+
+        // Send a POST request to the view
+        fetch(url, {
+            method: "POST",
+            headers: {
+                "X-CSRFToken": "{{ csrf_token }}",
+            },
+        })
+            .then((response) => response.json())
+            .then((data) => {
+                // Update the status message based on the response
+                if (data.status === "error") {
+                    statusMessageElement.className = "alert alert-danger";
+                    statusMessageElement.textContent = data.message;
+                } else {
+                    statusMessageElement.className = "alert alert-success";
+                    statusMessageElement.textContent = data.message;
+                }
+            })
+            .catch((error) => {
+                console.error("Error:", error);
+                statusMessageElement.className = "alert alert-danger";
+                statusMessageElement.textContent = "An error occurred while processing the request.";
+            })
+            .finally(() => {
+                // Ensure the status message is visible and re-enable the button
+                statusMessageElement.classList.remove("d-none");
+                buttonElement.disabled = false;
+            });
+    }
+
+    document.getElementById("trigger-last-full-statement-btn").addEventListener("click", function () {
+        const statusMessage = document.getElementById("status-message");
+        const button = this;
+        triggerView("{% url 'get_last_full_statement_file_type' %}", statusMessage, button);
+    });
+
+    document.getElementById("trigger-process-statements-btn").addEventListener("click", function () {
+        const statusMessage = document.getElementById("status-message");
+        const button = this;
+        triggerView("{% url 'process_all_statements' %}", statusMessage, button);
+    });
+</script>
+{% endblock %}
