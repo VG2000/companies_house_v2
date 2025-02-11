@@ -1,5 +1,14 @@
 from django.contrib import admin, messages
-from .models import Company, CompanyFiles, UniqueValuesCache, FinancialStatement, CompanyOfInterest
+from .models import (
+    Company, 
+    CompanyFiles, 
+    UniqueValuesCache, 
+    FinancialStatement, 
+    CompanyOfInterest,
+    SicClass,
+    SicDivision,
+    SicGroup,
+    )
 from django.urls import path
 from django.http import HttpResponseRedirect
 from django.urls import reverse
@@ -44,6 +53,10 @@ admin.site.register(UniqueValuesCache, UniqueValuesCacheAdmin)
 admin.site.register(CompanyFiles)
 admin.site.register(FinancialStatement)
 admin.site.register(CompanyOfInterest)
+admin.site.register(SicDivision)
+admin.site.register(SicGroup)
+admin.site.register(SicClass)
+
 # Customize the admin site title
 admin.site.site_header = "Jackson Sq Admin"
 admin.site.site_title = "Jackson Sq Admin Portal"

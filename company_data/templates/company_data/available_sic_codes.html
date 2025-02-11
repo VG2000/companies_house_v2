@@ -3,18 +3,27 @@
 {% block title %}Available SIC Codes{% endblock %}
 
 {% block content %}
-
 <h2>Available SIC Codes</h2>
+
 <!-- Back to Filter Page -->
 <p>
     <a href="{% url 'filter_companies' %}" class="btn btn-primary">Back to Filter</a>
 </p>
+
+<!-- Render the SIC Code hierarchy -->
 <ul>
-    {% for sic_code in unique_sic_codes %}
-        <li>{{ sic_code }}</li>
+    {% for division in sic_tree %}
+        <li><strong>{{ division.code }} - {{ division.description }}</strong></li>
+        <ul>
+            {% for group in division.groups %}
+                <li>{{ group.code }} - {{ group.description }}</li>
+                <ul>
+                    {% for sic_class in group.classes %}
+                        <li>{{ sic_class.code }} - {{ sic_class.description }}</li>
+                    {% endfor %}
+                </ul>
+            {% endfor %}
+        </ul>
     {% endfor %}
 </ul>
-
-
-
 {% endblock %}

@@ -6,7 +6,7 @@ from django.db.models import Q
 from django.core.cache import cache
 from django.shortcuts import render
 from django import forms
-from django.core.paginator import Paginator, EmptyPage, PageNotAnInteger
+from django.core.paginator import Paginator
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
 from company_data.models import Company, CompanyFiles, UniqueValuesCache
@@ -18,7 +18,7 @@ import base64
 import logging
 import json
 import time
-from company_data.models import Company, FinancialStatement, CompanyOfInterest
+from company_data.models import Company, FinancialStatement, CompanyOfInterest, SicClass, SicDivision, SicGroup
 from company_data.utils import parse_and_save_financial_statement
 
 
@@ -40,6 +40,7 @@ os.makedirs(SAVE_PATH, exist_ok=True)
 def statement_admin(request):
     return render(request, 'company_data/statement_admin.html')
 
+
 def get_first_aa_document_url(response):
     """
     Extracts the document_metadata URL for the first filing history item with type "AA".
@@ -57,10 +58,7 @@ def get_first_aa_document_url(response):
         logger.error(f"Error extracting document URL: {e}")
         return None
 
-
-def get_last_full_statement_pdf(request):
-   pass
-            
+  
 
 def get_last_full_statement_file_type(request):
 
@@ -461,16 +459,40 @@ def home_view(request):
 
 
 def available_sic_codes_view(request):
-    try:
-        # Fetch the cached unique SIC codes from UniqueValuesCache
-        unique_sic_codes_cache = UniqueValuesCache.objects.get(key='unique_sic_codes')
-        unique_sic_codes = unique_sic_codes_cache.values  # Retrieve the values field
-    except UniqueValuesCache.DoesNotExist:
-        # Fallback in case the cache is not available
-        unique_sic_codes = []
+    """
+    Fetches the SIC hierarchy dynamically and structures it for rendering in the template.
+    """
+    sic_tree = []
 
-    return render(request, 'company_data/available_sic_codes.html', {
-        'unique_sic_codes': unique_sic_codes,
+    # Fetch all divisions with related groups and classes
+    divisions = SicDivision.objects.prefetch_related("groups__classes").order_by("code")
+
+    for division in divisions:
+        division_data = {
+            "code": division.code,
+            "description": division.description,
+            "groups": []
+        }
+
+        for group in division.groups.all().order_by("code"):
+            group_data = {
+                "code": group.code,
+                "description": group.description,
+                "classes": []
+            }
+
+            for sic_class in group.classes.all().order_by("code"):
+                group_data["classes"].append({
+                    "code": sic_class.code,
+                    "description": sic_class.description
+                })
+
+            division_data["groups"].append(group_data)
+
+        sic_tree.append(division_data)
+
+    return render(request, "company_data/available_sic_codes.html", {
+        "sic_tree": sic_tree
     })
 
 
@@ -722,77 +744,105 @@ def process_all_statements(request):
     return JsonResponse({"status": "error", "message": "Invalid request method."})
 
 
+def filter_company_render(request):
+    """
+    Render the initial financial statement filter page without loading any companies.
+    """
+    # Load only the filter options (SIC Division, Group, Class)
+    divisions = SicDivision.objects.all()
+    groups = SicGroup.objects.all()
+    classes = SicClass.objects.all()
+
+    # Render the template with filter options
+    return render(
+            request,
+            'company_data/financial_statements_list.html',
+            {'divisions': divisions, 'groups': groups, 'classes': classes}
+        )
 
 
-def financial_statements_list(request):
-    financial_statements = FinancialStatement.objects.all()
-
-    # Turnover Revenue Filters
+def financial_statements_list(request): 
+    """
+    Handle filtering and fetching financial statements based on user input.
+    """
+    # Get filter parameters from GET request
     turnover_revenue_min = request.GET.get("turnover_revenue_min")
     turnover_revenue_max = request.GET.get("turnover_revenue_max")
-
-    if turnover_revenue_min:
-        try:
-            # Convert to a float, multiply by 1,000,000, and filter
-            turnover_revenue_min = float(turnover_revenue_min) * 1_000_000
-            financial_statements = financial_statements.filter(turnover_revenue__gte=turnover_revenue_min)
-        except ValueError:
-            # Log an error or handle invalid input
-            logger.error(f"Invalid turnover_revenue_min value: {request.GET.get('turnover_revenue_min')}")
-
-    if turnover_revenue_max:
-        try:
-            # Convert to a float, multiply by 1,000,000, and filter
-            turnover_revenue_max = float(turnover_revenue_max) * 1_000_000
-            financial_statements = financial_statements.filter(turnover_revenue__lte=turnover_revenue_max)
-        except ValueError:
-            # Log an error or handle invalid input
-            logger.error(f"Invalid turnover_revenue_max value: {request.GET.get('turnover_revenue_max')}")
-
-   # Operating Profit/Loss Filters
     operating_profit_loss_min = request.GET.get("operating_profit_loss_min")
     operating_profit_loss_max = request.GET.get("operating_profit_loss_max")
+    division_id = request.GET.get("division")
+    group_id = request.GET.get("group")
+    class_id = request.GET.get("class")
 
-    if operating_profit_loss_min:
-        try:
-            # Convert to a float, multiply by 1,000,000, and filter
+    # Check if any filter parameter is present
+    if any([
+        turnover_revenue_min,
+        turnover_revenue_max,
+        operating_profit_loss_min,
+        operating_profit_loss_max,
+        division_id,
+        group_id,
+        class_id
+    ]):
+        # Start with all financial statements
+        financial_statements = FinancialStatement.objects.all()
+
+        # Apply filters
+        if turnover_revenue_min:
+            turnover_revenue_min = float(turnover_revenue_min) * 1_000_000
+            financial_statements = financial_statements.filter(turnover_revenue__gte=turnover_revenue_min)
+        if turnover_revenue_max:
+            turnover_revenue_max = float(turnover_revenue_max) * 1_000_000
+            financial_statements = financial_statements.filter(turnover_revenue__lte=turnover_revenue_max)
+        if operating_profit_loss_min:
             operating_profit_loss_min = float(operating_profit_loss_min) * 1_000_000
             financial_statements = financial_statements.filter(operating_profit_loss__gte=operating_profit_loss_min)
-        except ValueError:
-            # Log an error or handle invalid input
-            logger.error(f"Invalid operating_profit_loss_min value: {request.GET.get('operating_profit_loss_min')}")
-
-    if operating_profit_loss_max:
-        try:
-            # Convert to a float, multiply by 1,000,000, and filter
+        if operating_profit_loss_max:
             operating_profit_loss_max = float(operating_profit_loss_max) * 1_000_000
             financial_statements = financial_statements.filter(operating_profit_loss__lte=operating_profit_loss_max)
-        except ValueError:
-            # Log an error or handle invalid input
-            logger.error(f"Invalid operating_profit_loss_max value: {request.GET.get('operating_profit_loss_max')}")
+        if class_id:
+            financial_statements = financial_statements.filter(sic_code_1__startswith=class_id)
+        elif group_id:
+            financial_statements = financial_statements.filter(sic_code_1__startswith=group_id)
+        elif division_id:
+            financial_statements = financial_statements.filter(sic_code_1__startswith=division_id)
+    else:
+        # Return an empty queryset if no filters are selected
+        financial_statements = FinancialStatement.objects.none()
 
-     # Add ordering to the QuerySet (e.g., by primary key or report_end_date)
-    financial_statements = financial_statements.order_by('company_name') 
+    # Ensure stable pagination by applying ordering
+    financial_statements = financial_statements.order_by("company_name") 
 
-    # Pagination
-    page = request.GET.get("page", 1)  # Default to page 1 if no page parameter
-    paginator = Paginator(financial_statements, 25)  # Show 25 records per page
+    # Paginate results
+    paginator = Paginator(financial_statements, 25)  # 25 records per page
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
 
-    try:
-        financial_statements_page = paginator.page(page)
-    except PageNotAnInteger:
-        financial_statements_page = paginator.page(1)  # Return first page if page is not an integer
-    except EmptyPage:
-        financial_statements_page = paginator.page(paginator.num_pages)  # Return last page if out of range
+    # Return the filtered results
+    return render(
+        request,
+        'company_data/financial_statements_list.html',
+        {
+            'financial_statements': page_obj,
+            'divisions': SicDivision.objects.all(),
+            'groups': SicGroup.objects.all(),
+            'classes': SicClass.objects.all(),
+            'num_statements': financial_statements.count(),
+        }
+    )
 
-    num_statements = financial_statements.count()
-    # Pass the filtered results and pagination object to the template
-    context = {
-        "financial_statements": financial_statements_page,
-        "paginator": paginator,
-        "num_statements":num_statements
-    }
-    return render(request, "company_data/financial_statements_list.html", context)
+
+def get_groups(request):
+    division_code = request.GET.get("division_code")
+    groups = SicGroup.objects.filter(division__code=division_code) if division_code else SicGroup.objects.all()
+    data = [{"code": group.code, "description": group.description} for group in groups]
+    return JsonResponse(data, safe=False)
+
+def get_classes(request):
+    group_code = request.GET.get("group_code")
+    classes = SicClass.objects.filter(group__code=group_code) if group_code else SicClass.objects.all()
+    data = [{"code": cls.code, "description": cls.description} for cls in classes]
+    return JsonResponse(data, safe=False)
 
 def model_field_counts(request):
     """

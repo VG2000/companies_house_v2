@@ -140,3 +140,45 @@ class CompanyOfInterest(models.Model):
     company_number = models.CharField(max_length=50, db_index=True, unique=True)
     company_name = models.CharField(max_length=255, null=True, blank=True)
     sic_code_1 = models.CharField(max_length=255, null=True, blank=True)
+
+
+class SicDivision(models.Model):
+    code = models.CharField(max_length=5, unique=True, db_index=True)
+    description = models.TextField()
+
+    def __str__(self):
+        return f"{self.code}: {self.description}"
+    
+    class Meta:
+        verbose_name = "SIC Division"
+        verbose_name_plural = "SIC Divisions"
+        ordering = ["code"]
+
+
+class SicGroup(models.Model):
+    code = models.CharField(max_length=5, unique=True, db_index=True)
+    division = models.ForeignKey(SicDivision, on_delete=models.CASCADE, related_name="groups")
+    description = models.TextField()
+
+    def __str__(self):
+        return f"{self.code}: {self.description} (Division {self.division.code})"
+    
+    class Meta:
+        verbose_name = "SIC Group"
+        verbose_name_plural = "SIC Groups"
+        ordering = ["code"]
+
+
+class SicClass(models.Model):
+    code = models.CharField(max_length=5, unique=True, db_index=True)
+    group = models.ForeignKey(SicGroup, on_delete=models.CASCADE, related_name="classes")
+    division = models.ForeignKey(SicDivision, on_delete=models.CASCADE, related_name="classes")
+    description = models.TextField()
+
+    def __str__(self):
+        return f"{self.code}: {self.description} (Group {self.group.code})"
+    
+    class Meta:
+        verbose_name = "SIC Class"
+        verbose_name_plural = "SIC Classes"
+        ordering = ["code"]

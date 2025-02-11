@@ -3,8 +3,7 @@
 set -e
 
 echo "Starting Django app..."
-echo "Starting one off migration..."
-python manage.py migrate
+
 # Apply migrations only if there are unapplied migrations
 if python manage.py showmigrations | grep '\[ \]'; then
     echo "Applying database migrations..."
@@ -22,6 +21,10 @@ python manage.py collectstatic --noinput
 # Create a superuser for the Django admin
 echo "Creating dev superuser..."
 python manage.py create_dev_superuser
+
+# Create a superuser for the Django admin
+echo "Populating SIC codes......"
+python manage.py populate_sic
 
 # Function to import_basic_company_data from a zip file
 import_basic_company_data() {
