@@ -7,7 +7,7 @@
 <!-- Filtered Results -->
 <h2>Filter Companies</h2>
 <p>Total companies in database: <strong>{{ total_company_count|intcomma }}</strong></p>
-<p>Total companies matching the filter criteria: <strong>{{ filtered_count|intcomma }}</strong></p>
+
 
 <!-- Filter Form -->
 <form method="get" class="mb-4" id="filter-form">
@@ -51,9 +51,8 @@
   <!-- Submit & Reset Buttons -->
 <button type="submit" class="btn btn-primary mt-4">Filter</button>
 <button type="button" id="reset-filters-button" class="btn btn-secondary mt-4">Reset Filters</button>
-
 </form>
-
+<p>Total companies matching the filter criteria: <strong>{{ filtered_count|intcomma }}</strong></p>
 <!-- Selected Company -->
 <span id="selected-company" class="text-muted"></span>
 

@@ -733,59 +733,50 @@ def filter_company_render(request):
         )
 
 
-def financial_statements_list(request): 
+def financial_statements_list(request):
     """
     Handle filtering and fetching financial statements based on user input.
     """
+
     # Get filter parameters from GET request
     turnover_revenue_min = request.GET.get("turnover_revenue_min")
     turnover_revenue_max = request.GET.get("turnover_revenue_max")
     operating_profit_loss_min = request.GET.get("operating_profit_loss_min")
     operating_profit_loss_max = request.GET.get("operating_profit_loss_max")
-    division_id = request.GET.get("division")
-    group_id = request.GET.get("group")
-    class_id = request.GET.get("class")
+    selected_division = request.GET.get("division")
+    selected_group = request.GET.get("group")
+    selected_class = request.GET.get("class")
 
-    # Check if any filter parameter is present
-    if any([
-        turnover_revenue_min,
-        turnover_revenue_max,
-        operating_profit_loss_min,
-        operating_profit_loss_max,
-        division_id,
-        group_id,
-        class_id
-    ]):
-        # Start with all financial statements
-        financial_statements = FinancialStatement.objects.all()
+    filters = Q()
 
-        # Apply filters
-        if turnover_revenue_min:
-            turnover_revenue_min = float(turnover_revenue_min) * 1_000_000
-            financial_statements = financial_statements.filter(turnover_revenue__gte=turnover_revenue_min)
-        if turnover_revenue_max:
-            turnover_revenue_max = float(turnover_revenue_max) * 1_000_000
-            financial_statements = financial_statements.filter(turnover_revenue__lte=turnover_revenue_max)
-        if operating_profit_loss_min:
-            operating_profit_loss_min = float(operating_profit_loss_min) * 1_000_000
-            financial_statements = financial_statements.filter(operating_profit_loss__gte=operating_profit_loss_min)
-        if operating_profit_loss_max:
-            operating_profit_loss_max = float(operating_profit_loss_max) * 1_000_000
-            financial_statements = financial_statements.filter(operating_profit_loss__lte=operating_profit_loss_max)
-        if class_id:
-            financial_statements = financial_statements.filter(sic_code_1__startswith=class_id)
-        elif group_id:
-            financial_statements = financial_statements.filter(sic_code_1__startswith=group_id)
-        elif division_id:
-            financial_statements = financial_statements.filter(sic_code_1__startswith=division_id)
-    else:
-        # Return an empty queryset if no filters are selected
-        financial_statements = FinancialStatement.objects.none()
+    # Apply revenue filters
+    if turnover_revenue_min:
+        turnover_revenue_min = float(turnover_revenue_min) * 1_000_000
+        filters &= Q(turnover_revenue__gte=turnover_revenue_min)
+    if turnover_revenue_max:
+        turnover_revenue_max = float(turnover_revenue_max) * 1_000_000
+        filters &= Q(turnover_revenue__lte=turnover_revenue_max)
 
-    # Ensure stable pagination by applying ordering
-    financial_statements = financial_statements.order_by("company_name") 
+    # Apply profit/loss filters
+    if operating_profit_loss_min:
+        operating_profit_loss_min = float(operating_profit_loss_min) * 1_000_000
+        filters &= Q(operating_profit_loss__gte=operating_profit_loss_min)
+    if operating_profit_loss_max:
+        operating_profit_loss_max = float(operating_profit_loss_max) * 1_000_000
+        filters &= Q(operating_profit_loss__lte=operating_profit_loss_max)
 
-    # Paginate results
+    # Apply SIC filtering hierarchy (same as company_filter_view)
+    if selected_class:
+        filters &= Q(sic_code_1__startswith=selected_class)  # Match full 6 digits
+    elif selected_group:
+        filters &= Q(sic_code_1__startswith=selected_group)  # Match first 3 digits
+    elif selected_division:
+        filters &= Q(sic_code_1__startswith=selected_division)  # Match first 2 digits
+
+    # Apply filters to the queryset
+    financial_statements = FinancialStatement.objects.filter(filters).order_by("company_name")
+
+    # Pagination
     paginator = Paginator(financial_statements, 25)  # 25 records per page
     page_number = request.GET.get('page')
     page_obj = paginator.get_page(page_number)
@@ -800,6 +791,9 @@ def financial_statements_list(request):
             'groups': SicGroup.objects.all(),
             'classes': SicClass.objects.all(),
             'num_statements': financial_statements.count(),
+            'selected_division': selected_division,
+            'selected_group': selected_group,
+            'selected_class': selected_class,
         }
     )
 
