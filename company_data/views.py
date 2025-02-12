@@ -18,6 +18,7 @@ import base64
 import logging
 import json
 import time
+from company_data.forms import CompanyFilterForm
 from company_data.models import Company, FinancialStatement, CompanyOfInterest, SicClass, SicDivision, SicGroup
 from company_data.utils import parse_and_save_financial_statement
 
@@ -407,7 +408,6 @@ def search_company(request):
         logger.debug(f"Fetching data for company number: {company_number}")
         logger.debug(f"Selected option: {data_type}")
         logger.debug(f"Request URL: {url}")
-        logger.debug(f"Request coming from IP: {ip_address}")
 
         # Construct the Authorization header
         auth_header = f"Basic {base64.b64encode(f'{API_KEY}:'.encode('utf-8')).decode('utf-8')}"
@@ -432,26 +432,6 @@ def search_company(request):
         'company_number': company_number,
         'data_type': data_type
     })
-
-
-class CompanyFilterForm(forms.Form):
-    accounts_next_due_date = forms.DateField(
-        widget=forms.DateInput(attrs={'type': 'date'}),
-        required=False,
-        label="Accounts Next Due Date (greater than)"
-    )
-    accounts_account_category = forms.MultipleChoiceField(
-        required=False,
-        widget=forms.SelectMultiple,
-        label="Account Category",
-        choices=[],  # Initially empty, populated dynamically in the view
-    )
-    sic_code_1 = forms.MultipleChoiceField(
-        choices=[],
-        widget=forms.SelectMultiple(attrs={'class': 'form-control'}),
-        required=False,
-        label="SIC Codes"
-    )
 
 
 def home_view(request):
@@ -495,79 +475,71 @@ def available_sic_codes_view(request):
         "sic_tree": sic_tree
     })
 
-
 def company_filter_view(request):
     logger.info("Entering company_filter_view")
 
-    # Fetch unique categories and SIC codes from cache
-    logger.info("Fetching unique categories and SIC codes from cache")
-    try:
-        unique_categories = UniqueValuesCache.objects.get(key='unique_categories').values
-        unique_sic_codes = UniqueValuesCache.objects.get(key='unique_sic_codes').values
-        logger.info(f"Fetched cached values - Unique categories: {len(unique_categories)}, Unique SIC codes: {len(unique_sic_codes)}")
-    except UniqueValuesCache.DoesNotExist:
-        # logger.warning("UniqueValuesCache not found; dynamically fetching unique values")
-        # unique_categories = list(Company.objects.values_list('accounts_account_category', flat=True).distinct())
-        # unique_sic_codes = list(Company.objects.values_list('sic_code_1', flat=True).distinct())
-        logger.warning("UniqueValuesCache not found; returning empty lists")
-        unique_categories = []
-        unique_sic_codes = []
+    # Get total count of all companies (before applying filters)
+    total_company_count = Company.objects.count()
+    logger.info(f"Total company count in database: {total_company_count}")
 
+    # Fetch SIC divisions, groups, and classes for dependent filtering
+    logger.info("Fetching SIC codes from SIC models")
+    divisions = SicDivision.objects.all().order_by('code')
+    groups = SicGroup.objects.all().order_by('code')
+    classes = SicClass.objects.all().order_by('code')
+
+    logger.info(f"Fetched SIC Divisions: {divisions.count()}, SIC Groups: {groups.count()}, SIC Classes: {classes.count()}")
+
+    selected_division = request.GET.get('division')
+    selected_group = request.GET.get('group')
+    selected_class = request.GET.get('class')
     # Initialize form
-    logger.info("Initializing form with unique dropdown values")
     form = CompanyFilterForm(request.GET or None)
-    form.fields['accounts_account_category'].choices = [(cat, cat) for cat in unique_categories if cat]
-    form.fields['sic_code_1'].choices = [(sic, sic) for sic in unique_sic_codes if sic]
 
     filtered_count = 0
-    filtered_companies = []
+    filtered_companies = Company.objects.none()  # Default empty queryset
     page_obj = None
 
-    # Check if filters are applied
-    logger.info("Checking if filters are applied")
+    #logger.info("Checking if filters are applied")
     if request.GET and form.is_valid():
         logger.info("Filters applied, validating form data")
         try:
-            accounts_next_due_date = form.cleaned_data.get('accounts_next_due_date')
-            selected_categories = form.cleaned_data.get('accounts_account_category')
-            selected_sic_codes = form.cleaned_data.get('sic_code_1')
+            filters = Q()
+            logger.info(f"Filter criteria - Division: {selected_division}, Group: {selected_group}, Class: {selected_class}")
 
-            logger.info(f"Filter criteria - accounts_next_due_date: {accounts_next_due_date}, "
-                        f"selected_categories: {selected_categories}, selected_sic_codes: {selected_sic_codes}")
-
-            # Build the filters dynamically
-            filters = Q(company_status='Active')
-            if accounts_next_due_date:
-                filters &= Q(accounts_next_due_date__gt=accounts_next_due_date)
-            if selected_categories:
-                filters &= Q(accounts_account_category__in=selected_categories)
-            if selected_sic_codes:
-                filters &= Q(sic_code_1__in=selected_sic_codes)
+            if selected_class:
+                filters &= Q(sic_code_1__startswith=selected_class)  # Match full 6 digits
+            if selected_group:
+                filters &= Q(sic_code_1__startswith=selected_group)  # Match first 3 digits
+            if selected_division:
+                filters &= Q(sic_code_1__startswith=selected_division)  # Match first 2 digits
 
             logger.info(f"Applying filters: {filters}")
 
             # Apply filters
-            filtered_companies = Company.objects.filter(filters).order_by('company_name')
+            filtered_companies = Company.objects.filter(filters).order_by("company_name")
             filtered_count = filtered_companies.count()
             logger.info(f"Filtered companies count: {filtered_count}")
 
-            # Pagination
-            paginator = Paginator(filtered_companies, 10)  # Show 10 companies per page
-            page_number = request.GET.get('page')
-            page_obj = paginator.get_page(page_number)
-            logger.info(f"Pagination complete - Page number: {page_number}, Items on page: {len(page_obj)}")
         except Exception as e:
-            logger.error(f"Error applying filters or pagination: {e}")
+            logger.error(f"Error applying filters: {e}")
 
-    # Render the template
-    logger.info("Rendering the template")
+    # Pagination
+    paginator = Paginator(filtered_companies, 20)
+    page_number = request.GET.get('page', 1)  # Default to page 1
+    page_obj = paginator.get_page(page_number)
+
     return render(request, 'company_data/company_filter.html', {
         'form': form,
+        'total_company_count': total_company_count,
         'filtered_count': filtered_count,
-        'filtered_companies': filtered_companies,
         'page_obj': page_obj,
-        'unique_categories': unique_categories,
-        'unique_sic_codes': unique_sic_codes,
+        'sic_divisions': divisions,
+        'sic_groups': groups,
+        'sic_classes': classes,
+        'selected_division': selected_division,
+        'selected_group': selected_group,
+        'selected_class': selected_class,
     })
 
 

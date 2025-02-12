@@ -26,6 +26,9 @@ python manage.py create_dev_superuser
 echo "Populating SIC codes......"
 python manage.py populate_sic
 
+# Run company cleanup
+python manage.py clean_companies
+
 # Function to import_basic_company_data from a zip file
 import_basic_company_data() {
     local zip_file=$1

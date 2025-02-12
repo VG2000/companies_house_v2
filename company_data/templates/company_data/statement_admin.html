@@ -4,11 +4,13 @@
 <div class="container mt-4">
     <h2>Statement Admin</h2>
 
-    <!-- Button to trigger the get_last_full_statement_file_type view -->
+    <!-- Buttons for Statement Processing -->
     <button id="trigger-last-full-statement-btn" class="btn btn-primary">Download Last Full Statements</button>
-
-    <!-- Button to trigger the process_all_statements view -->
     <button id="trigger-process-statements-btn" class="btn btn-secondary">Process Downloaded Statements To DB</button>
+
+    <!-- Newly Added Buttons -->
+    <button id="update-companies-btn" class="btn btn-warning">Update Current Full Accounts</button> 
+    <button id="reset-companies-btn" class="btn btn-danger" type="button">Reset Current Full Accounts</button>
 
     <!-- Status message -->
     <div id="status-message" class="alert d-none mt-3"></div>
@@ -53,16 +55,24 @@
             });
     }
 
+    // Attach event listeners to all buttons
     document.getElementById("trigger-last-full-statement-btn").addEventListener("click", function () {
-        const statusMessage = document.getElementById("status-message");
-        const button = this;
-        triggerView("{% url 'get_last_full_statement_file_type' %}", statusMessage, button);
+        triggerView("{% url 'get_last_full_statement_file_type' %}", document.getElementById("status-message"), this);
     });
 
     document.getElementById("trigger-process-statements-btn").addEventListener("click", function () {
-        const statusMessage = document.getElementById("status-message");
-        const button = this;
-        triggerView("{% url 'process_all_statements' %}", statusMessage, button);
+        triggerView("{% url 'process_all_statements' %}", document.getElementById("status-message"), this);
+    });
+
+    // New buttons for updating and resetting full accounts
+    document.getElementById("update-companies-btn").addEventListener("click", function () {
+        triggerView("{% url 'update_current_full_accounts' %}", document.getElementById("status-message"), this);
+    });
+
+    document.getElementById("reset-companies-btn").addEventListener("click", function () {
+        if (confirm("Are you sure you want to reset all current full accounts? This action cannot be undone.")) {
+            triggerView("{% url 'reset_current_full_accounts' %}", document.getElementById("status-message"), this);
+        }
     });
 </script>
 {% endblock %}

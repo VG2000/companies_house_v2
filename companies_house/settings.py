@@ -164,7 +164,7 @@ LOGGING = {
     },
     'handlers': {
         'file': {
-            'level': 'WARNING',
+            'level': 'INFO',
             'class': 'logging.FileHandler',
             'filename': 'application.log',  # Save logs to a dedicated application log file
             'formatter': 'verbose',
@@ -178,7 +178,7 @@ LOGGING = {
         },
         'company_data': { 
             'handlers': ['file'],
-            'level': 'WARNING', 
+            'level': 'INFO', 
             'propagate': False,
         },
     },

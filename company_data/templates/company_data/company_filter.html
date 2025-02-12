@@ -1,214 +1,287 @@
 {% extends 'company_data/base.html' %}
-
+{% load humanize %}
 {% block title %}Filter Companies{% endblock %}
 
 {% block content %}
 
 <!-- Filtered Results -->
-<h2>Filtered Company Count</h2>
-<p>Total companies matching the filter criteria: <strong>{{ filtered_count }}</strong></p>
+<h2>Filter Companies</h2>
+<p>Total companies in database: <strong>{{ total_company_count|intcomma }}</strong></p>
+<p>Total companies matching the filter criteria: <strong>{{ filtered_count|intcomma }}</strong></p>
 
 <!-- Filter Form -->
-<form method="get" class="mb-4">
-    <!-- Accounts Next Due Date -->
-    <div class="mb-3">
-        {{ form.accounts_next_due_date.label_tag }}
-        {{ form.accounts_next_due_date }}
+<form method="get" class="mb-4" id="filter-form">
+    <!-- SIC Code Dependent Filters -->
+    <div class="row">
+        <div class="col-md-4">
+            <label for="division" class="form-label">SIC Division</label>
+            <select name="division" id="division" class="form-select">
+                <option value="">All Divisions</option>
+                {% for division in sic_divisions %}
+                <option value="{{ division.code }}" {% if request.GET.division == division.code %}selected{% endif %}>
+                    {{ division.code }} - {{ division.description }}
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-md-4">
+            <label for="group" class="form-label">SIC Group</label>
+            <select name="group" id="group" class="form-select">
+                <option value="">All Groups</option>
+                {% for group in sic_groups %}
+                <option value="{{ group.code }}" {% if request.GET.group == group.code %}selected{% endif %}>
+                    {{ group.code }} - {{ group.description }}
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-md-4">
+            <label for="class" class="form-label">SIC Class</label>
+            <select name="class" id="class" class="form-select">
+                <option value="">All Classes</option>
+                {% for class in sic_classes %}
+                <option value="{{ class.code }}" {% if request.GET.class == class.code %}selected{% endif %}>
+                    {{ class.code }} - {{ class.description }}
+                </option>
+                {% endfor %}
+            </select>
+        </div>
     </div>
 
-    <!-- Accounts Account Category -->
-    <div class="mb-3">
-        {{ form.accounts_account_category.label_tag }}
-        {{ form.accounts_account_category }}
-    </div>
+  <!-- Submit & Reset Buttons -->
+<button type="submit" class="btn btn-primary mt-4">Filter</button>
+<button type="button" id="reset-filters-button" class="btn btn-secondary mt-4">Reset Filters</button>
 
-    <!-- SIC Code -->
-    <div class="mb-3">
-        {{ form.sic_code_1.label_tag }}
-        {{ form.sic_code_1 }}
-    </div>
-
-    <!-- Link to SIC Codes Page -->
-    <p>
-        <a href="{% url 'available_sic_codes' %}" class="btn btn-secondary btn-sm">Available SIC Codes</a>
-    </p>
-
-    <!-- Submit Button -->
-    <button type="submit" class="btn btn-primary">Filter</button>
-    <!-- Button to update companies -->
-    <button id="update-companies" class="btn btn-warning">Update Current Full Accounts</button>
-    <!-- Button to reset companies_full_accounts to False -->
-    <button id="reset-companies" class="btn btn-danger" type="button">Reset Current Full Accounts</button>
-    <!-- Button to reset the form -->
-    <button type="button" class="btn btn-secondary" onclick="resetForm()">Reset</button>
 </form>
 
+<!-- Selected Company -->
+<span id="selected-company" class="text-muted"></span>
+
+<!-- Action Buttons -->
+<div id="company-container" class="mt-3">
+    <button id="view-filing-history-button" class="btn btn-primary" disabled>View Filing History</button>
+    <button id="add-to-interest-button" class="btn btn-secondary" disabled>Add to Interests</button>
+</div>
+
 {% if page_obj %}
-    <!-- Filtered Companies Table -->
-    <table class="table table-striped">
-        <thead>
-            <tr>
-                <th>Company Name</th>
-                <th>Company Number</th>
-                <th>Address</th>
-                <th>Category</th>
-                <th>Status</th>
-                <th>Country of Origin</th>
-                <th>Next Due Date</th>
-            </tr>
-        </thead>
-        <tbody>
-            {% for company in page_obj %}
-            <tr class="company-row" data-id="{{ company.id }}"></tr>
-                <td>{{ company.company_name }}</td>
-                <td>{{ company.company_number }}</td>
-                <td>
-                    {{ company.reg_address_line1 }}, {{ company.reg_address_line2 }},
-                    {{ company.reg_address_post_town }}, {{ company.reg_address_postcode }}
-                </td>
-                <td>{{ company.accounts_account_category }}</td>
-                <td>{{ company.company_status }}</td>
-                <td>{{ company.country_of_origin }}</td>
-                <td>{{ company.accounts_next_due_date }}</td>
-            </tr>
-            {% endfor %}
-        </tbody>
-    </table>
+<!-- Filtered Companies Table -->
+<table class="table table-striped" id="company-table">
+    <thead>
+        <tr>
+            <th>Company Name</th>
+            <th>Company Number</th>
+            <th>Address</th>
+            <th>SIC Code</th>
+            <th>Next Due Date</th>
+        </tr>
+    </thead>
+    <tbody>
+        {% for company in page_obj %}
+         <tr class="company-row" 
+        data-company-number="{{ company.company_number }}" 
+        data-company-name="{{ company.company_name }}">
+            <td>{{ company.company_name }}</td>
+            <td>{{ company.company_number }}</td>
+            <td>
+                {{ company.reg_address_line1 }}, {{ company.reg_address_line2 }},
+                {{ company.reg_address_post_town }}, {{ company.reg_address_postcode }}
+            </td>
+            <td>{{ company.sic_code_1 }}</td>
+            <td>{{ company.accounts_next_due_date }}</td>
+        </tr>
+        {% endfor %}
+    </tbody>
+</table>
 
-    {% if filtered_count > 0 %}
-    <!-- Pagination Controls -->
-    <nav aria-label="Page navigation">
-        <ul class="pagination justify-content-center">
-            {% if page_obj.has_previous %}
-            <li class="page-item">
-                <a class="page-link" href="?page=1&{{ request.GET.urlencode }}" aria-label="First">
-                    <span aria-hidden="true">&laquo;&laquo;</span>
-                </a>
-            </li>
-            <li class="page-item">
-                <a class="page-link" href="?page={{ page_obj.previous_page_number }}&{{ request.GET.urlencode }}" aria-label="Previous">
-                    <span aria-hidden="true">&laquo;</span>
-                </a>
-            </li>
-            {% endif %}
-
-            {% for num in page_obj.paginator.page_range %}
-            {% if page_obj.number == num %}
-            <li class="page-item active"><span class="page-link">{{ num }}</span></li>
-            {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
-            <li class="page-item">
-                <a class="page-link" href="?page={{ num }}&{{ request.GET.urlencode }}">{{ num }}</a>
-            </li>
-            {% endif %}
-            {% endfor %}
-
-            {% if page_obj.has_next %}
-            <li class="page-item">
-                <a class="page-link" href="?page={{ page_obj.next_page_number }}&{{ request.GET.urlencode }}" aria-label="Next">
-                    <span aria-hidden="true">&raquo;</span>
-                </a>
-            </li>
-            <li class="page-item">
-                <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}&{{ request.GET.urlencode }}" aria-label="Last">
-                    <span aria-hidden="true">&raquo;&raquo;</span>
-                </a>
-            </li>
-            {% endif %}
-        </ul>
-    </nav>
+<!-- Pagination Controls -->
+<nav aria-label="Page navigation">
+    <ul class="pagination justify-content-center">
+        <!-- First & Previous Page -->
+        {% if page_obj.has_previous %}
+        <li class="page-item">
+            <a class="page-link" href="?page=1{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}" aria-label="First">
+                <span aria-hidden="true">&laquo;&laquo;</span>
+            </a>
+        </li>
+        <li class="page-item">
+            <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}" aria-label="Previous">
+                <span aria-hidden="true">&laquo;</span>
+            </a>
+        </li>
         {% endif %}
 
-            {% else %}
-                <p>No filters applied yet. Use the form above to filter the companies.</p>
-            {% endif %}
+        <!-- Page Numbers -->
+        {% for num in page_obj.paginator.page_range %}
+        {% if num == page_obj.number %}
+        <li class="page-item active">
+            <span class="page-link">{{ num }}</span>
+        </li>
+        {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+        <li class="page-item">
+            <a class="page-link" href="?page={{ num }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">{{ num }}</a>
+        </li>
+        {% endif %}
+        {% endfor %}
+
+        <!-- Next & Last Page -->
+        {% if page_obj.has_next %}
+        <li class="page-item">
+            <a class="page-link" href="?page={{ page_obj.next_page_number }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}" aria-label="Next">
+                <span aria-hidden="true">&raquo;</span>
+            </a>
+        </li>
+        <li class="page-item">
+            <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}" aria-label="Last">
+                <span aria-hidden="true">&raquo;&raquo;</span>
+            </a>
+        </li>
+        {% endif %}
+    </ul>
+</nav>
+
+{% else %}
+<p>No filters applied yet. Use the form above to filter the companies.</p>
+{% endif %}
 
 {% endblock %}
 
 {% block scripts %}
 <script>
-    // Handle updating companies based on filters
-    document.getElementById('update-companies').addEventListener('click', function () {
-        // Collect filter parameters from the form
-        const formData = new FormData(document.querySelector('form'));
-        const payload = {};
+document.addEventListener("DOMContentLoaded", function () {
+    const divisionSelect = document.getElementById("division");
+    const groupSelect = document.getElementById("group");
+    const classSelect = document.getElementById("class");
 
-        // Convert form data to a JSON object
-        formData.forEach((value, key) => {
-            if (value) {
-                if (payload[key]) {
-                    // Handle multiple values for the same key
-                    if (!Array.isArray(payload[key])) {
-                        payload[key] = [payload[key]];
-                    }
-                    payload[key].push(value);
-                } else {
-                    payload[key] = value;
-                }
+    const table = document.getElementById("company-table");
+    const selectedCompanySpan = document.getElementById("selected-company");
+    const viewFilingHistoryButton = document.getElementById("view-filing-history-button");
+    const addToInterestButton = document.getElementById("add-to-interest-button");
+    const resetButton = document.getElementById("reset-filters-button");
+
+    resetButton.addEventListener("click", function () {
+        // Redirect to the base URL without any query parameters
+        window.location.href = "{% url 'filter_companies' %}";
+    });
+
+    let selectedCompanyNumber = null;
+    let selectedCompanyName = null;
+
+    // Check if table exists before adding event listener
+    if (table) {
+        table.addEventListener("click", function (event) {
+            const row = event.target.closest("tr");
+            if (!row || !row.dataset.companyNumber) return;
+
+            // Highlight the selected row
+            [...table.querySelectorAll("tr")].forEach(r => r.classList.remove("table-active"));
+            row.classList.add("table-active");
+
+            // Store the selected company number and name globally
+            selectedCompanyNumber = row.dataset.companyNumber;
+            selectedCompanyName = row.dataset.companyName;
+
+            if (selectedCompanySpan) {
+                selectedCompanySpan.textContent = `Selected Company: ${selectedCompanyName}`;
             }
+
+            // Enable the buttons
+            const viewFilingHistoryButton = document.getElementById("view-filing-history-button");
+            const addToInterestButton = document.getElementById("add-to-interest-button");
+
+            if (viewFilingHistoryButton) viewFilingHistoryButton.disabled = false;
+            if (addToInterestButton) addToInterestButton.disabled = false;
         });
-
-        console.log("Payload being sent to backend:", payload); // Log payload to debug
-
-        fetch("{% url 'update_current_full_accounts' %}", {
-            method: 'POST',
-            headers: {
-                'X-CSRFToken': '{{ csrf_token }}',
-                'Content-Type': 'application/json',
-            },
-            body: JSON.stringify(payload), // Send the filter parameters as JSON
-        })
-            .then(response => response.json())
-            .then(data => {
-                console.log("Response from backend:", data); // Log backend response
-                if (data.status === 'success') {
-                    console.log(data.message);
-                    alert(data.message);
-                } else {
-                    console.error("Error: ", data.message);
-                    alert('Error: ' + data.message);
-                }
-            })
-            .catch(error => console.error('Error:', error));
-    });
-
-    // Handle resetting all current_full_accounts to False
-    document.getElementById('reset-companies').addEventListener('click', function () {
-        if (!confirm("Are you sure you want to reset all current_full_accounts to False? This action cannot be undone.")) {
-            return;
-        }
-
-        fetch("{% url 'reset_current_full_accounts' %}", {
-            method: 'POST',
-            headers: {
-                'X-CSRFToken': '{{ csrf_token }}',
-            },
-        })
-            .then(response => response.json())
-            .then(data => {
-                console.log("Response from backend:", data); // Log backend response
-                if (data.status === 'success') {
-                    console.log(data.message);
-                    alert(data.message);
-                } else {
-                    console.error("Error: ", data.message);
-                    alert('Error: ' + data.message);
-                }
-            })
-            .catch(error => console.error('Error:', error));
-    });
-    // Handle form reset
-    function resetForm() {
-        // Reset the form to its default state
-        document.querySelector('form').reset();
-        // Optionally clear the query parameters in the URL
-        const url = new URL(window.location.href);
-        url.search = ''; // Clear all query parameters
-        window.history.replaceState({}, document.title, url);
     }
+
+    // Add click event to the "View Filing History" button
+    if (viewFilingHistoryButton) {
+        viewFilingHistoryButton.addEventListener("click", function () {
+            if (!selectedCompanyNumber) {
+                alert("Please select a company first.");
+                return;
+            }
+            const filingHistoryUrl = `https://find-and-update.company-information.service.gov.uk/company/${selectedCompanyNumber}/filing-history`;
+            window.open(filingHistoryUrl, "_blank");
+        });
+    }
+
+    // Add click event to the "Add to Interests" button
+    if (addToInterestButton) {
+        addToInterestButton.addEventListener("click", function () {
+            console.log("Adding company to interests:", selectedCompanyNumber); // Debugging log
+
+            if (!selectedCompanyNumber) {
+                alert("Please select a company first.");
+                return;
+            }
+            fetch("{% url 'add_to_interest' %}", {
+                method: "POST",
+                headers: {
+                    "Content-Type": "application/json",
+                    "X-CSRFToken": "{{ csrf_token }}",
+                },
+                body: JSON.stringify({ company_number: selectedCompanyNumber }),
+            }).then(response => response.json()).then(data => alert(data.message || "Company added!"));
+        });
+    }
+   
+
+    function fetchOptions(endpoint, params, targetSelect, selectedValue, resetTarget = null) {
+        console.log(`Fetching ${endpoint} with params:`, params);
+
+        fetch(`${endpoint}?${new URLSearchParams(params)}`)
+            .then(response => response.json())
+            .then(data => {
+                targetSelect.innerHTML = `<option value="">All ${targetSelect.id.charAt(0).toUpperCase() + targetSelect.id.slice(1)}</option>`;
+                data.forEach(item => {
+                    const option = document.createElement("option");
+                    option.value = item.code;
+                    option.textContent = `${item.code} - ${item.description}`;
+                    if (selectedValue && selectedValue === item.code) {
+                        option.selected = true;
+                    }
+                    targetSelect.appendChild(option);
+                });
+
+                if (resetTarget) {
+                    resetTarget.innerHTML = `<option value="">All ${resetTarget.id.charAt(0).toUpperCase() + resetTarget.id.slice(1)}</option>`;
+                }
+            })
+            .catch(error => console.error("Error fetching options:", error));
+    }
+
+    // Preserve selected values from the backend
+    const selectedGroup = "{{ request.GET.group|default:'' }}";
+    const selectedClass = "{{ request.GET.class|default:'' }}";
+
+    if (divisionSelect.value) {
+        fetchOptions("{% url 'get_groups' %}", { division_code: divisionSelect.value }, groupSelect, selectedGroup, classSelect);
+    }
+
+    if (groupSelect.value) {
+        fetchOptions("{% url 'get_classes' %}", { group_code: groupSelect.value }, classSelect, selectedClass);
+    }
+
+    // Handle dropdown changes
+    divisionSelect.addEventListener("change", () => {
+        const divisionCode = divisionSelect.value;
+        if (divisionCode) {
+            console.log('Here!')
+            fetchOptions("{% url 'get_groups' %}", { division_code: divisionCode }, groupSelect, null, classSelect);
+        } else {
+            groupSelect.innerHTML = `<option value="">All Groups</option>`;
+            classSelect.innerHTML = `<option value="">All Classes</option>`;
+        }
+    });
+
+    groupSelect.addEventListener("change", () => {
+        const groupCode = groupSelect.value;
+        if (groupCode) {
+            fetchOptions("{% url 'get_classes' %}", { group_code: groupCode }, classSelect);
+        } else {
+            classSelect.innerHTML = `<option value="">All Classes</option>`;
+        }
+    });
+});
 </script>
-
-
-
-
-
 {% endblock %}

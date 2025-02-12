@@ -15,7 +15,7 @@ from django.urls import reverse
 
 class CompanyAdmin(admin.ModelAdmin):
     list_display = ('company_name', 'company_number', 'current_full_accounts','full_accounts_paper_filed')
-    list_filter = ('current_full_accounts','full_accounts_paper_filed',)
+    list_filter = ('current_full_accounts','full_accounts_paper_filed',"company_status", "accounts_account_category")
     search_fields = ('company_name', 'company_number')
 
 class UniqueValuesCacheAdmin(admin.ModelAdmin):

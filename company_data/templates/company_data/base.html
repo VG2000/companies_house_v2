@@ -17,7 +17,13 @@
             <div class="collapse navbar-collapse" id="navbarNav">
                 <ul class="navbar-nav">
                     <li class="nav-item">
+                        <a class="nav-link" href="{% url 'available_sic_codes' %}">SIC Hierarchy </a>
+                    </li>
+                    <li class="nav-item">
                         <a class="nav-link" href="{% url 'filter_companies' %}">Filter Companies</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{% url 'filter_company_render' %}">Filter Statements</a>
                     </li>
                     <li class="nav-item">
                         <a class="nav-link" href="{% url 'company_detail' %}">Company Detail</a>
@@ -25,17 +31,13 @@
                     <li class="nav-item">
                         <a class="nav-link" href="{% url 'search_company' %}">Search Company</a>
                     </li>
-                    <li class="nav-item">
+                    <!-- <li class="nav-item">
+                        Hid this link. Need to move logic to one of the admin pages!
                         <a class="nav-link" href="{% url 'show_update_full_accounts_page' %}">Update Filing Type</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="{% url 'filter_company_render' %}">Filter Statements</a>
-                    </li>
+                    </li> -->
+                    
                     <li class="nav-item">
                         <a class="nav-link" href="{% url 'company_of_interest_list' %}">Companies Of Interest</a>
-                    </li>
-                    <li class="nav-item">
-                        <a class="nav-link" href="{% url 'available_sic_codes' %}">Available SIC Codes </a>
                     </li>
                     <li class="nav-item">
                         <a class="nav-link" href="{% url 'model_field_counts' %}">Model Field Counts</a>
