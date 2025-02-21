@@ -8,7 +8,7 @@
 </head>
 <body>
     <!-- Navbar -->
-    <nav class="navbar navbar-expand-lg navbar-light bg-light">
+    <nav class="navbar navbar-expand-lg navbar-light bg-light fixed-top">
         <div class="container-fluid">
             <a class="navbar-brand" href="{% url 'home' %}">Companies House Search</a>
             <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbarNav" aria-controls="navbarNav" aria-expanded="false" aria-label="Toggle navigation">
@@ -24,6 +24,9 @@
                     </li>
                     <li class="nav-item">
                         <a class="nav-link" href="{% url 'filter_company_render' %}">Filter Statements</a>
+                    </li>
+                    <li class="nav-item">
+                        <a class="nav-link" href="{% url 'new_filter_statements_render' %}">New Filter Statements</a>
                     </li>
                     <li class="nav-item">
                         <a class="nav-link" href="{% url 'company_detail' %}">Company Detail</a>
@@ -43,7 +46,9 @@
                         <a class="nav-link" href="{% url 'model_field_counts' %}">Model Field Counts</a>
                     </li>
                     <li class="nav-item">
-                        <a class="nav-link" href="{% url 'statement_admin' %}">Statement Admin</a>
+                        {% if request.user.is_superuser %}
+                            <a class="nav-link" href="{% url 'statement_admin' %}">Statement Admin</a>
+                        {% endif %}
                     </li>
                     <li class="nav-item">
                         <a class="nav-link" href="{% url 'admin:index' %}">Application Admin</a>
@@ -54,7 +59,7 @@
     </nav>
 
     <!-- Main Content -->
-    <div class="container mt-5">
+    <div class="container" style="padding-top: 90px;">
         {% block content %}
         {% endblock %}
     </div>
@@ -65,5 +70,33 @@
     <!-- Page-Specific Scripts -->
     {% block scripts %}
     {% endblock %}
+    {% block extra_css %}
+    <style>
+        body {
+            font-size: 0.8rem; /* Adjust as needed, default Bootstrap is 1rem */
+        }
+    
+        h1, h2, h3, h4, h5, h6 {
+            font-size: 90%; /* Reduce heading sizes */
+        }
+    
+        .btn {
+            font-size: 0.85rem; /* Reduce button text size */
+        }
+    
+        .form-label, .form-select, .form-control {
+            font-size: 0.85rem; /* Reduce form input and labels */
+        }
+    
+        .table {
+            font-size: 0.85rem; /* Reduce table font size */
+        }
+    
+        .navbar {
+            font-size: 0.85rem; /* Reduce navbar font size */
+        }
+    </style>
+    {% endblock %}
 </body>
+
 </html>

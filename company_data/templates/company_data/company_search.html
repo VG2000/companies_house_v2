@@ -9,7 +9,7 @@
     <form method="POST">
         {% csrf_token %}
         <label for="company_number">Company Number:</label>
-        <input type="text" id="company_number" name="company_number" required>
+        <input type="text" id="company_number" name="company_number" class="form-control w-auto" maxlength="8" required>
         <br><br>
         <label for="company_data">Data Type:</label><br>
         <input type="radio" id="company_data" name="data_type" value="company_data" {% if data_type == "company_data" %}checked{% endif %}>

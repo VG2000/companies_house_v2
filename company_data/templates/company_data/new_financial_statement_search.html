@@ -1,0 +1,394 @@
+{% extends "company_data/base.html" %}
+{% load humanize %}
+
+{% block content %}
+<div class="container mt-4">
+    <h2 class="mb-2">Filter Financial Statements</h2>
+
+    <!-- Filter Form -->
+    <form method="GET" action="{% url 'new_financial_statements_list' %}" class="row g-3" id="filter-form">
+       <!-- Turnover Revenue Filters -->
+<div class="col-md-3">
+    <label for="turnover_revenue_min" class="form-label">Turnover Revenue Greater Than (MM):</label>
+    <input type="number" step="1" name="turnover_revenue_min" id="turnover_revenue_min" 
+           class="form-control" value="{{ request.GET.turnover_revenue_min }}" min="0">
+</div>
+<div class="col-md-3">
+    <label for="turnover_revenue_max" class="form-label">Turnover Revenue Less Than (MM):</label>
+    <input type="number" step="1" name="turnover_revenue_max" id="turnover_revenue_max" 
+           class="form-control" value="{{ request.GET.turnover_revenue_max }}" min="0">
+</div>
+
+         <!-- Operating Profit/Loss Filters -->
+         <div class="col-md-3">
+            <label for="profit_loss_min" class="form-label">Profit/Loss Greater Than (MM):</label>
+            <input type="number" step="1" name="profit_loss_min" id="profit_loss_min" 
+                   class="form-control" value="{{ request.GET.profit_loss_min }}">
+        </div>
+        <div class="col-md-3">
+            <label for="profit_loss_max" class="form-label">Profit/Loss Less Than (MM):</label>
+            <input type="number" step="1" name="profit_loss_max" id="profit_loss_max" 
+                   class="form-control" value="{{ request.GET.profit_loss_max }}">
+        </div>
+
+        <div class="col-md-3">
+            <label for="locality" class="form-label">Locality</label>
+            <input type="text" name="locality" id="locality" class="form-control"
+                   value="{{ request.GET.locality }}">
+        </div>
+        
+        <!-- SIC Filters -->
+        <div class="col-md-3">
+            <label for="division" class="form-label">Division</label>
+            <select name="division" id="division" class="form-select">
+                <option value="">All Divisions</option>
+                {% for division in divisions %}
+                <option value="{{ division.code }}" {% if division.code == request.GET.division %}selected{% endif %}>
+                    {{ division.code }} - {{ division.description }}
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-md-3">
+            <label for="group" class="form-label">Group</label>
+            <select name="group" id="group" class="form-select">
+                <option value="">All Groups</option>
+                {% for group in groups %}
+                <option value="{{ group.code }}" {% if group.code == request.GET.group %}selected{% endif %}>
+                    {{ group.code }} - {{ group.description }}
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-md-3">
+            <label for="class" class="form-label">Class</label>
+            <select name="class" id="class" class="form-select">
+                <option value="">All Classes</option>
+                {% for class in classes %}
+                <option value="{{ class.code }}" {% if class.code == request.GET.class %}selected{% endif %}>
+                    {{ class.code }} - {{ class.description }}
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+
+        <!-- Submit Button -->
+        <div class="col-12">
+            <button type="submit" class="btn btn-success">Filter</button>
+            <button type="button" id="reset-filters-button" class="btn btn-secondary">Reset Filters</button>
+        </div>
+        </div>
+    </form>
+
+    <p class="mt-2"># of Company Statements: <strong>{{ num_statements }}</strong></p>
+
+    <!-- Selected Company -->
+    <span id="selected-company" class="text-muted"></span>
+
+    <!-- Action Buttons -->
+    <div id="company-container" class="mt-3">
+        <button id="view-filing-history-button" class="btn btn-primary" disabled>View Filing History</button>
+        <button id="add-to-interest-button" class="btn btn-secondary" disabled>Add to Interests</button>
+    </div>
+</div>
+
+<!-- Results Table -->
+{% if page_obj %}
+    <!-- Render the table if there are results -->
+    <div class="table-container mt-4">
+        <table id="financial-statements-table" class="table table-striped table-hover">
+            <thead class="table-dark">
+                <tr>
+                    <th>Company Number</th>
+                    <th>Company Name</th>
+                    <th>Report Date</th>
+                    <th>SIC Code</th>
+                    <th>Address</th>
+                    <th>Turnover Revenue</th>
+                    <th>Profit/Loss</th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for statement in page_obj %}
+                <tr data-company-number="{{ statement.company_number|default:'' }}" data-company-name="{{ statement.company_name|default:'' }}">
+                    <td>{{ statement.company_number }}</td>
+                    <td>{{ statement.company_name }}</td>
+                    <td>{{ statement.filing_date }}</td>
+                    <td>
+                        {{ statement.sic_code_1 }}
+                        {% if statement.sic_code_2 %}, {{ statement.sic_code_2 }}{% endif %}
+                        {% if statement.sic_code_3 %}, {{ statement.sic_code_3 }}{% endif %}
+                        {% if statement.sic_code_4 %}, {{ statement.sic_code_4 }}{% endif %}
+                    </td>
+                    <td> 
+                        {{ statement.address_line_1 }}, 
+                        {{ statement.address_line_2 }}, 
+                        {{ statement.locality }}, 
+                        {{ statement.postal_code }}
+                    </td>
+                    <td>£{{ statement.TurnoverRevenue|intcomma }}</td>
+                    <td class="{% if statement.ProfitLoss < 0 %}text-danger{% endif %}">
+                        £{{ statement.ProfitLoss|intcomma }}
+                    </td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+    </div>
+     <!-- Pagination Controls -->
+     <nav aria-label="Page navigation">
+        <ul class="pagination justify-content-center">
+            {% if page_obj.has_previous %}
+            <li class="page-item">
+                <a class="page-link" href="?page=1{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}" aria-label="First">
+                    <span aria-hidden="true">&laquo;&laquo;</span>
+                </a>
+            </li>
+            <li class="page-item">
+                <a class="page-link" href="?page={{ page_obj.previous_page_number }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}" aria-label="Previous">
+                    <span aria-hidden="true">&laquo;</span>
+                </a>
+            </li>
+            {% endif %}
+
+            {% for num in page_obj.paginator.page_range %}
+            {% if num == page_obj.number %}
+            <li class="page-item active">
+                <span class="page-link">{{ num }}</span>
+            </li>
+            {% elif num > page_obj.number|add:'-3' and num < page_obj.number|add:'3' %}
+            <li class="page-item">
+                <a class="page-link" href="?page={{ num }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}">{{ num }}</a>
+            </li>
+            {% endif %}
+            {% endfor %}
+
+            {% if page_obj.has_next %}
+            <li class="page-item">
+                <a class="page-link" href="?page={{ page_obj.next_page_number }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}" aria-label="Next">
+                    <span aria-hidden="true">&raquo;</span>
+                </a>
+            </li>
+            <li class="page-item">
+                <a class="page-link" href="?page={{ page_obj.paginator.num_pages }}{% for key, value in request.GET.items %}{% if key != 'page' %}&{{ key }}={{ value }}{% endif %}{% endfor %}" aria-label="Last">
+                    <span aria-hidden="true">&raquo;&raquo;</span>
+                </a>
+            </li>
+            {% endif %}
+        </ul>
+    </nav>
+{% else %}
+    <!-- Display a message when no results are found -->
+    <p class="text-center mt-4">No financial statements found. Please apply filters.</p>
+{% endif %}
+{% endblock %}
+
+{% block extra_css %}
+<style>
+   #financial-statements-table {
+       width:100%;
+       border-collapse: collapse;
+     
+   }
+
+   #financial-statements-table thead {
+       position: sticky;
+       top: 0;
+       background: white;
+       z-index: 100;
+   }
+
+   #financial-statements-table th {
+       padding: 10px;
+       text-align: left;
+       border-bottom: 2px solid #ddd;
+   }
+
+   .table-container {
+       max-height: 1250px;
+       overflow-y: auto;
+       border: 1px solid #ddd;
+       margin-left: 20px;
+       margin-right: 20px;
+   }
+</style>
+{% endblock %}
+
+{% block scripts %}
+<script>
+   document.addEventListener("DOMContentLoaded", function () {
+    const table = document.getElementById("financial-statements-table");
+    const selectedCompanySpan = document.querySelector("#selected-company");
+    const viewFilingHistoryButton = document.getElementById("view-filing-history-button");
+    const addToInterestButton = document.getElementById("add-to-interest-button");
+    const divisionSelect = document.getElementById("division");
+    const groupSelect = document.getElementById("group");
+    const classSelect = document.getElementById("class");
+    const resetFiltersButton = document.getElementById("reset-filters-button");
+    const filterForm = document.getElementById("filter-form");
+
+    let selectedCompanyNumber = null;
+    let selectedCompanyName = null;
+
+    // Function to get URL parameters
+    function getQueryParams() {
+        const params = new URLSearchParams(window.location.search);
+        return {
+            division: params.get("division") || "",
+            group: params.get("group") || "",
+            sicClass: params.get("class") || ""
+        };
+    }
+
+    const { division, group, sicClass } = getQueryParams();
+
+    // Function to fetch and update dropdown options dynamically
+    function fetchOptions(endpoint, params, targetSelect, resetTarget = null, selectedValue = "") {
+        fetch(`${endpoint}?${new URLSearchParams(params)}`)
+            .then(response => response.json())
+            .then(data => {
+                targetSelect.innerHTML = `<option value="">All ${targetSelect.id.charAt(0).toUpperCase() + targetSelect.id.slice(1)}</option>`;
+                data.forEach(item => {
+                    const option = document.createElement("option");
+                    option.value = item.code;
+                    option.textContent = `${item.code} - ${item.description}`;
+                    if (item.code === selectedValue) {
+                        option.selected = true;
+                    }
+                    targetSelect.appendChild(option);
+                });
+
+                // Reset the dependent dropdown when fetching a new set of options
+                if (resetTarget) {
+                    resetTarget.innerHTML = `<option value="">All ${resetTarget.id.charAt(0).toUpperCase() + resetTarget.id.slice(1)}</option>`;
+                }
+            })
+            .catch(error => console.error("Error fetching options:", error));
+    }
+
+    // Restore selected Division, Group, and Class
+    if (division) {
+        divisionSelect.value = division;
+        fetchOptions("{% url 'get_groups' %}", { division_code: division }, groupSelect, classSelect, group);
+    }
+
+    if (group) {
+        groupSelect.value = group;
+        fetchOptions("{% url 'get_classes' %}", { group_code: group }, classSelect, null, sicClass);
+    }
+
+    if (sicClass) {
+        classSelect.value = sicClass;
+    }
+
+    // When a division is selected, update the group dropdown and reset the class dropdown
+    divisionSelect.addEventListener("change", () => {
+        const divisionCode = divisionSelect.value;
+        if (divisionCode) {
+            fetchOptions("{% url 'get_groups' %}", { division_code: divisionCode }, groupSelect, classSelect);
+        } else {
+            groupSelect.innerHTML = `<option value="">All Groups</option>`;
+            classSelect.innerHTML = `<option value="">All Classes</option>`;
+        }
+    });
+
+    // When a group is selected, update the class dropdown
+    groupSelect.addEventListener("change", () => {
+        const groupCode = groupSelect.value;
+        if (groupCode) {
+            fetchOptions("{% url 'get_classes' %}", { group_code: groupCode }, classSelect);
+        } else {
+            classSelect.innerHTML = `<option value="">All Classes</option>`;
+        }
+    });
+
+    // Reset filters when the "Reset Filters" button is clicked
+    resetFiltersButton.addEventListener("click", function (event) {
+        event.preventDefault(); // Prevent default form submission
+
+        // Reset the form
+        filterForm.reset();
+
+        // Clear dependent dropdowns
+        groupSelect.innerHTML = `<option value="">All Groups</option>`;
+        classSelect.innerHTML = `<option value="">All Classes</option>`;
+
+        // Redirect to the same URL but without query parameters (empty dataset)
+        window.location.href = "{% url 'new_financial_statements_list' %}";
+    });
+
+    // ✅ FIXED: Ensure table exists before adding event listener
+    if (table) {
+        // Add click event to table rows
+        table.addEventListener("click", function (event) {
+            const row = event.target.closest("tr");
+            if (!row || !row.dataset.companyNumber) return;
+
+            // Highlight the selected row
+            [...table.querySelectorAll("tr")].forEach(r => r.classList.remove("table-active"));
+            row.classList.add("table-active");
+
+            // Set the selected company number and name
+            selectedCompanyNumber = row.dataset.companyNumber;
+            selectedCompanyName = row.dataset.companyName;
+
+            // Update the span to display the selected company
+            selectedCompanySpan.textContent = `Selected Company: ${selectedCompanyName}`;
+
+            // Enable the buttons
+            viewFilingHistoryButton.disabled = false;
+            addToInterestButton.disabled = false;
+        });
+    } else {
+        console.warn("⚠️ Table not found. Skipping row click event binding.");
+    }
+
+    // Add click event to the "View Filing History" button
+    viewFilingHistoryButton.addEventListener("click", function () {
+        if (!selectedCompanyNumber) {
+            alert("Please select a company first.");
+            return;
+        }
+
+        // Construct the filing history URL
+        const filingHistoryUrl = `https://find-and-update.company-information.service.gov.uk/company/${selectedCompanyNumber}/filing-history`;
+
+        // Open the URL in a new browser tab
+        window.open(filingHistoryUrl, "_blank");
+    });
+
+    // Add click event to the "Add to Interests" button
+    addToInterestButton.addEventListener("click", function () {
+        if (!selectedCompanyNumber) {
+            alert("Please select a company first.");
+            return;
+        }
+
+        // Send the company to the backend
+        fetch("{% url 'add_to_interest' %}", {
+            method: "POST",
+            headers: {
+                "Content-Type": "application/json",
+                "X-CSRFToken": "{{ csrf_token }}",
+            },
+            body: JSON.stringify({
+                company_number: selectedCompanyNumber,
+            }),
+        })
+            .then(response => response.json())
+            .then(data => {
+                if (data.status === "success") {
+                    alert(`Company "${selectedCompanyName}" added to interests successfully!`);
+                } else {
+                    alert(data.message || "Failed to add the company to interests.");
+                }
+            })
+            .catch(error => {
+                console.error("Error:", error);
+                alert("An error occurred while adding the company to interests.");
+            });
+    });
+});
+
+</script>
+{% endblock %}

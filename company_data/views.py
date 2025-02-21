@@ -9,7 +9,7 @@ from django import forms
 from django.core.paginator import Paginator
 from django.http import JsonResponse
 from django.views.decorators.csrf import csrf_exempt
-from company_data.models import Company, CompanyFiles, UniqueValuesCache
+from company_data.models import Company, CompanyFiles
 from django.shortcuts import render
 from django.http import JsonResponse
 from django.apps import apps
@@ -19,9 +19,10 @@ import logging
 import json
 import time
 from company_data.forms import CompanyFilterForm
-from company_data.models import Company, FinancialStatement, CompanyOfInterest, SicClass, SicDivision, SicGroup
+from company_data.models import Company, FinancialStatement, CompanyOfInterest, SicClass, SicDivision, SicGroup, FinancialMetrics
 from company_data.utils import parse_and_save_financial_statement
-
+from company_data.file_parser import parse_zip_files
+from company_data.companies_house_company_parser import process_company_data, fetch_and_update_company_data
 
 
 # Configure logging
@@ -37,6 +38,60 @@ SAVE_PATH = os.path.abspath("./statements")  # Saves to ./statements/
 
 # Ensure the directory exists
 os.makedirs(SAVE_PATH, exist_ok=True)
+
+@csrf_exempt
+def process_company_data_view(request):
+    """
+    View to trigger processing of company data.
+    """
+    if request.method == "POST":
+        try:
+            # Call the function to process the CSV data
+            process_company_data()
+            logger.info("Company data processing triggered via view.")
+            return JsonResponse({"status": "success", "message": "Company data successfully processed!"})
+        except Exception as e:
+            logger.error(f"Error processing company data: {e}", exc_info=True)
+            return JsonResponse({"status": "error", "message": "An error occurred while processing company data."})
+    return JsonResponse({"status": "error", "message": "Invalid request method."})
+
+
+@csrf_exempt
+def update_accounts_paper_filed_view(request):
+    """
+    View to trigger processing of company data.
+    """
+    if request.method == "POST":
+        try:
+            logger.info("🔄 Running fetch_and_update_company_data() inside the view...")
+            
+            # Call the function directly (no threading, runs synchronously)
+            fetch_and_update_company_data()
+
+            logger.info("✅ Update process completed.")
+            return JsonResponse({"status": "success", "message": "Company data paper filed updates successfully processed!"})
+
+        except Exception as e:
+            logger.error(f"❌ Error processing company data: {e}", exc_info=True)
+            return JsonResponse({"status": "error", "message": "An error occurred while updating company data."})
+
+    return JsonResponse({"status": "error", "message": "Invalid request method."})
+
+
+@csrf_exempt
+def update_financial_metrics(request):
+    """
+    Django view to trigger the parse_zip function and update financial metrics.
+    """
+    if request.method == "POST":
+        try:
+            parse_zip_files()  # Call the function to process ZIP files
+            return JsonResponse({"message": "Financial metrics updated successfully."}, status=200)
+        except Exception as e:
+            return JsonResponse({"error": str(e)}, status=500)
+    else:
+        return JsonResponse({"error": "Invalid request method."}, status=405)
+    
 
 def statement_admin(request):
     return render(request, 'company_data/statement_admin.html')
@@ -316,69 +371,6 @@ def download_last_full_statements(request):
             logger.error(f"Error occurred while downloading statements: {e}", exc_info=True)
             return JsonResponse(
                 {"status": "error", "message": "An error occurred while downloading statements."}
-            )
-
-    return JsonResponse({"status": "error", "message": "Invalid request method."})
-
-
-def update_full_accounts_paper_filed(request):
-    if request.method == "POST":
-        try:
-            logger.debug("Initiating update_full_accounts_paper_filed")
-            companies = Company.objects.filter(current_full_accounts=True)
-            updated_count = 0
-            sleep_time = 0.8  # Wait time between requests (to stay within rate limit)
-
-            for company in companies:
-                company_number = company.company_number
-                url = f"{BASE_URL}/company/{company_number}/filing-history"
-                
-
-                logger.debug(f"Fetching filing history for company: {company_number}")
-                try:
-                    response = requests.get(url, headers=HEADERS, timeout=10)
-                    response.raise_for_status()
-                    data = response.json()
-
-                    # Parse the JSON to find the first key "type" with value "AA"
-                    items = data.get("items", [])
-                    for item in items:
-                        if item.get("type") == "AA":
-                            logger.info(f"Processing document metadata for company: {company_number}")
-
-                            paper_filed = item.get("paper_filed", False)
-                            if paper_filed == False:
-                                # Fetch the document metadata URL
-                                document_url = item.get("links", {}).get("document_metadata")
-                                
-                                if document_url:
-                                    # Set the url for a later document fetch
-                                    company.last_full_statement_url = document_url
-                                    logger.info(f"Updated company {company_number}: last_full_statement_url={document_url}")
-                                    company.full_accounts_paper_filed = paper_filed
-                                    company.save()
-
-                            updated_count += 1
-                            logger.info(f"Updated company {company_number}: full_accounts_paper_filed={paper_filed}")
-                            break
-
-                except requests.exceptions.RequestException as e:
-                    logger.error(f"Error fetching data for company {company_number}: {e}")
-                    continue
-
-                # Sleep to comply with rate limit
-                time.sleep(sleep_time)
-
-            return JsonResponse(
-                {
-                    "status": "success",
-                    "message": f"Successfully updated {updated_count} companies.",
-                }
-            )
-        except Exception as e:
-            logger.error(f"Error occurred while updating companies: {e}", exc_info=True)
-            return JsonResponse(
-                {"status": "error", "message": "An error occurred while updating companies."}
             )
 
     return JsonResponse({"status": "error", "message": "Invalid request method."})
@@ -786,7 +778,7 @@ def financial_statements_list(request):
         request,
         'company_data/financial_statements_list.html',
         {
-            'financial_statements': page_obj,
+            'page_obj': page_obj,
             'divisions': SicDivision.objects.all(),
             'groups': SicGroup.objects.all(),
             'classes': SicClass.objects.all(),
@@ -794,6 +786,106 @@ def financial_statements_list(request):
             'selected_division': selected_division,
             'selected_group': selected_group,
             'selected_class': selected_class,
+        }
+    )
+
+
+def new_filter_statements_render(request):
+    """
+    Render the initial financial statement filter page without loading any companies.
+    """
+    # Load only the filter options (SIC Division, Group, Class)
+    divisions = SicDivision.objects.all()
+    groups = SicGroup.objects.all()
+    classes = SicClass.objects.all()
+
+    # Render the template with filter options
+    return render(
+            request,
+            'company_data/new_financial_statement_search.html',
+            {'divisions': divisions, 'groups': groups, 'classes': classes}
+        )
+
+
+def new_financial_statements_list(request):
+    """
+    Handle filtering and fetching financial statements based on user input.
+    """
+
+    # Get filter parameters from GET request
+    turnover_revenue_min = request.GET.get("turnover_revenue_min")
+    turnover_revenue_max = request.GET.get("turnover_revenue_max")
+    profit_loss_min = request.GET.get("profit_loss_min")
+    profit_loss_max = request.GET.get("profit_loss_max")
+    selected_division = request.GET.get("division")
+    selected_group = request.GET.get("group")
+    selected_class = request.GET.get("class")
+    selected_locality = request.GET.get("locality")  # New Locality filter
+
+    # Initialize filters
+    filters = Q()
+
+    # Check if any filters are applied
+    filter_applied = any([
+        turnover_revenue_min, turnover_revenue_max,
+        profit_loss_min, profit_loss_max,
+        selected_division, selected_group, selected_class, selected_locality
+    ])
+
+    # Apply filters only if at least one is provided
+    if filter_applied:
+        # Revenue filters
+        if turnover_revenue_min:
+            turnover_revenue_min = float(turnover_revenue_min) * 1_000_000
+            filters &= Q(TurnoverRevenue__gte=turnover_revenue_min)
+        if turnover_revenue_max:
+            turnover_revenue_max = float(turnover_revenue_max) * 1_000_000
+            filters &= Q(TurnoverRevenue__lte=turnover_revenue_max)
+
+        # Profit/loss filters
+        if profit_loss_min:
+            profit_loss_min = float(profit_loss_min) * 1_000_000
+            filters &= Q(ProfitLoss__gte=profit_loss_min)
+        if profit_loss_max:
+            profit_loss_max = float(profit_loss_max) * 1_000_000
+            filters &= Q(ProfitLoss__lte=profit_loss_max)
+
+        # SIC filtering hierarchy
+        if selected_class:
+            filters &= Q(sic_code_1__startswith=selected_class)
+        elif selected_group:
+            filters &= Q(sic_code_1__startswith=selected_group)
+        elif selected_division:
+            filters &= Q(sic_code_1__startswith=selected_division)
+
+        # Apply locality filter
+        if selected_locality:
+            filters &= Q(locality__icontains=selected_locality)  # Case-insensitive match
+
+        # Apply filters to the queryset
+        financial_statements = FinancialMetrics.objects.filter(filters).order_by("company_name")
+    else:
+        financial_statements = FinancialMetrics.objects.none()  # Return an empty queryset if no filters
+
+    # Pagination
+    paginator = Paginator(financial_statements, 25)  # 25 records per page
+    page_number = request.GET.get('page')
+    page_obj = paginator.get_page(page_number)
+
+    # Return the filtered results
+    return render(
+        request,
+        'company_data/new_financial_statement_search.html',
+        {
+            'page_obj': page_obj,
+            'divisions': SicDivision.objects.all(),
+            'groups': SicGroup.objects.all(),
+            'classes': SicClass.objects.all(),
+            'num_statements': financial_statements.count(),
+            'selected_division': selected_division,
+            'selected_group': selected_group,
+            'selected_class': selected_class,
+            'selected_locality': selected_locality,  # Pass to template
         }
     )
 

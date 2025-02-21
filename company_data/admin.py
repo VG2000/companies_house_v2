@@ -8,6 +8,13 @@ from .models import (
     SicClass,
     SicDivision,
     SicGroup,
+    FinancialMetrics,
+    ITLLevel1,
+    ITLLevel2,
+    ITLLevel3,
+    LocalAdministrativeUnit,
+    LocalAuthorityDistrict,
+    Postcode,
     )
 from django.urls import path
 from django.http import HttpResponseRedirect
@@ -56,6 +63,14 @@ admin.site.register(CompanyOfInterest)
 admin.site.register(SicDivision)
 admin.site.register(SicGroup)
 admin.site.register(SicClass)
+admin.site.register(FinancialMetrics)
+admin.site.register(ITLLevel1)
+admin.site.register(ITLLevel2)
+admin.site.register(ITLLevel3)
+admin.site.register(LocalAdministrativeUnit)
+admin.site.register(LocalAuthorityDistrict)
+admin.site.register(Postcode)
+
 
 # Customize the admin site title
 admin.site.site_header = "Jackson Sq Admin"

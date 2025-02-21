@@ -1,11 +1,56 @@
 from django.db import transaction
 import logging
 from datetime import datetime
+import pandas as pd
+import zipfile
+import mimetypes
+import os
 from lxml import etree
 from company_data.models import FinancialStatement, Company
 
 # Configure logging
 logger = logging.getLogger("company_data")
+
+def parse_date(date_value):
+    """
+    Converts various date formats into '%Y-%m-%d' (ISO format).
+    Handles:
+      - Strings in UK format (DD/MM/YYYY) or ISO (YYYY-MM-DD)
+      - Integers (Excel serial numbers) by converting to dates
+      - Strings that contain numeric dates (e.g., "42518")
+    Returns None if the value is invalid.
+    """
+    if pd.isna(date_value) or date_value is None:
+        return None  # Handle empty or NaN values
+
+    # ✅ Convert numeric strings to integers before processing
+    if isinstance(date_value, str) and date_value.isdigit():
+        date_value = int(date_value)  # Convert to integer
+
+    # ✅ Handle Excel serial numbers (integers or floats)
+    if isinstance(date_value, (int, float)):
+        try:
+            # Convert Excel serial number to proper date
+            return (datetime(1899, 12, 30) + pd.to_timedelta(date_value, unit='D')).date()
+        except Exception as e:
+            print(f"⚠️ Warning: Cannot convert integer date {date_value} - {e}")
+            return None
+
+    # ✅ Handle string-based date formats
+    if isinstance(date_value, str):
+        date_formats = ["%d/%m/%Y", "%Y-%m-%d", "%d-%m-%Y", "%m/%d/%Y"]  # UK and ISO formats
+
+        for fmt in date_formats:
+            try:
+                return datetime.strptime(date_value.strip(), fmt).date()
+            except ValueError:
+                continue  # Try the next format
+
+    # 🚨 If no format matches, log a warning
+    print(f"⚠️ Warning: Unrecognized date format: {date_value}")
+    return None  # Return None for invalid dates
+
+
 
 
 def parse_and_save_financial_statement(file_path, company_number):
@@ -105,25 +150,6 @@ def parse_and_save_financial_statement(file_path, company_number):
         return None
 
 
-    # Function to handle date parsing
-    def parse_date(date_str):
-        """
-        Parse date string into YYYY-MM-DD format.
-        Handles various formats like DD.MM.YY, DD/MM/YYYY, etc.
-        """
-        if not date_str:
-            return None
-        try:
-            # Try parsing with common formats
-            for fmt in ["%d.%m.%y", "%d.%m.%Y", "%d/%m/%Y", "%d-%m-%Y", "%Y-%m-%d"]:
-                try:
-                    return datetime.strptime(date_str, fmt).date()
-                except ValueError:
-                    continue
-        except Exception as e:
-            logger.error(f"Error parsing date: {date_str} - {e}")
-        return None  # Return None if no format matches
-
 
     # Fetch the company record
     company = Company.objects.filter(company_number=company_number).first()
@@ -185,7 +211,6 @@ def parse_and_save_financial_statement(file_path, company_number):
         logger.info(f"Successfully saved financial statement for {company_number}")
     except Exception as e:
         logger.error(f"Error saving financial statement for {company_number}: {e}")
-
 
 
 

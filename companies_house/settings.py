@@ -25,8 +25,9 @@ SECRET_KEY = 'django-insecure-4vxmbp@&46aots%*$tkzxx11_^o^@vj6eq^+*b9p7j7_g=9xhx
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
-
-ALLOWED_HOSTS = []
+ALLOWED_HOSTS = os.getenv("ALLOWED_HOSTS", "localhost,127.0.0.1").split(",")
+# Ensure Django's CSRF protection works with AWS Lightsail
+CSRF_TRUSTED_ORIGINS = [f"https://{host}" for host in ALLOWED_HOSTS if not host.startswith("localhost")]
 
 
 # Application definition
@@ -45,6 +46,7 @@ INSTALLED_APPS = [
 
 MIDDLEWARE = [
     'django.middleware.security.SecurityMiddleware',
+    'whitenoise.middleware.WhiteNoiseMiddleware', 
     'django.contrib.sessions.middleware.SessionMiddleware',
     'django.middleware.common.CommonMiddleware',
     'django.middleware.csrf.CsrfViewMiddleware',
@@ -89,16 +91,16 @@ DATABASES = {
     }
 }
 
-CACHES = {
-    'default': {
-        'BACKEND': 'django_redis.cache.RedisCache',
-        'LOCATION': 'redis://redis:6379/1',  # Redis container and DB index
-        'OPTIONS': {
-            'CLIENT_CLASS': 'django_redis.client.DefaultClient',
-            'IGNORE_EXCEPTIONS': True,  # Optional: Ignore Redis connection errors
-        }
-    }
-}
+# CACHES = {
+#     'default': {
+#         'BACKEND': 'django_redis.cache.RedisCache',
+#         'LOCATION': 'redis://redis:6379/1',  # Redis container and DB index
+#         'OPTIONS': {
+#             'CLIENT_CLASS': 'django_redis.client.DefaultClient',
+#             'IGNORE_EXCEPTIONS': True,  # Optional: Ignore Redis connection errors
+#         }
+#     }
+# }
 
 # Password validation
 # https://docs.djangoproject.com/en/5.1/ref/settings/#auth-password-validators
@@ -136,10 +138,12 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.1/howto/static-files/
 
-STATIC_URL = 'static/'
+STATIC_URL = '/static/'  # URL to access static files
+STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')  # Directory where static files are collected
+STATICFILES_DIRS = [
+    os.path.join(BASE_DIR, 'static'),
+]
 
-# Directory where static files will be collected
-STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')
 
 MEDIA_URL = '/media/'
 MEDIA_ROOT = os.path.join(BASE_DIR, 'media')
@@ -164,23 +168,31 @@ LOGGING = {
     },
     'handlers': {
         'file': {
-            'level': 'INFO',
+            'level': 'ERROR', 
             'class': 'logging.FileHandler',
             'filename': 'application.log',  # Save logs to a dedicated application log file
             'formatter': 'verbose',
         },
+        'console': {
+            'level': 'DEBUG', 
+            'class': 'logging.StreamHandler',  # Prints logs to the console
+            'formatter': 'simple',  # Uses the 'simple' format
+        },
     },
     'loggers': {
         'django': {
-            'handlers': ['file'],
-            'level': 'WARNING',  # Only log warnings and above for Django internals
+            'handlers': ['file', 'console'],  # Logs to both file and console
+            'level': 'WARNING',  # ✅ Change from WARNING to DEBUG
             'propagate': False,
         },
         'company_data': { 
-            'handlers': ['file'],
-            'level': 'INFO', 
+            'handlers': ['file', 'console'],  # Logs to both file and console
+            'level': 'DEBUG',  # ✅ Ensures company_data logs appear
             'propagate': False,
         },
     },
 }
+
+
+DATA_UPLOAD_MAX_NUMBER_FIELDS = 10000  # Adjust this number based on your dataset size
 

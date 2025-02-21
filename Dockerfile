@@ -1,9 +1,9 @@
-# Use the official Python image
+# Use official Python image
 FROM python:3.13-slim
 
 # Set environment variables
-ENV PYTHONDONTWRITEBYTECODE 1
-ENV PYTHONUNBUFFERED 1
+ENV PYTHONDONTWRITEBYTECODE=1
+ENV PYTHONUNBUFFERED=1
 
 # Set the working directory
 WORKDIR /app
@@ -14,21 +14,23 @@ RUN apt-get update && apt-get install -y \
     libpq-dev \
     && apt-get clean
 
-# Install Python dependencies
+# Install Production Dependencies
 COPY requirements.txt /app/requirements.txt
-RUN pip install --no-cache-dir -r requirements.txt
+COPY requirements.prod.txt /app/requirements.prod.txt
+RUN pip install --no-cache-dir -r requirements.prod.txt
 
-# Create a staticfiles directory
-RUN mkdir -p /app/staticfiles
 
-# Copy the Django project into the container
+# Copy Django project files
 COPY . /app/
 
-# Copy the startup script into the container
-COPY startup.sh /app/startup.sh
-RUN chmod +x /app/startup.sh
+# Copy both startup scripts
+COPY startup.dev.sh /app/startup.dev.sh
+COPY startup.prod.sh /app/startup.prod.sh
+RUN chmod +x /app/startup.dev.sh /app/startup.prod.sh
 
 # Expose the app's port
-EXPOSE 8000
+EXPOSE 8080
 
+# Run the selected startup script
+CMD ["/bin/bash", "-c", "exec /app/startup.prod.sh"]
 

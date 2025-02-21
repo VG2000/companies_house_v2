@@ -1,42 +1,32 @@
 from django.core.management.base import BaseCommand
-from django.utils.timezone import datetime
 from company_data.models import Company
+from datetime import date
 import logging
 
-logger = logging.getLogger(__name__)
+# ✅ Configure logging
+logging.basicConfig(
+    filename="delete_old_companies.log",
+    level=logging.INFO,
+    format="%(asctime)s - %(levelname)s - %(message)s"
+)
 
-class Command(BaseCommand):
-    help = "Delete all Company records except those with company_status='Active', accounts_account_category='FULL' or 'GROUP', and accounts_next_due_date > 01/01/2025."
+class Command(BaseCommand):  # ✅ Django requires this class
+    help = "Deletes all Company records where returns_next_due_date is before 1st January 2025."
 
     def handle(self, *args, **kwargs):
-        self.stdout.write(self.style.WARNING("Starting company data cleanup..."))
+        """
+        Deletes all Company records where returns_next_due_date is before 1st January 2025.
+        """
+        cutoff_date = date(2025, 1, 1)
+        companies_to_delete = Company.objects.filter(returns_next_due_date__lt=cutoff_date)
 
-        # Define the cutoff date
-        cutoff_date = datetime(2025, 1, 1).date()
+        total_deleted = companies_to_delete.count()
+        logging.info(f"🚨 Found {total_deleted} companies to delete with returns_next_due_date before {cutoff_date}.")
 
-        # Filter companies that should be retained
-        retained_companies = Company.objects.filter(
-            company_status="Active",
-            accounts_account_category__in=["FULL", "GROUP"],
-            accounts_next_due_date__gt=cutoff_date  # Retain only if due date is after 01/01/2025
-        )
+        if total_deleted > 0:
+            companies_to_delete.delete()
+            logging.info(f"✅ Successfully deleted {total_deleted} old company records.")
+            self.stdout.write(self.style.SUCCESS(f"✅ Deleted {total_deleted} company records before {cutoff_date}."))
+        else:
+            self.stdout.write(self.style.WARNING("⚠️ No records found to delete."))
 
-        retained_count = retained_companies.count()
-        total_count = Company.objects.count()
-
-        if retained_count == total_count:
-            self.stdout.write(self.style.SUCCESS("No records to delete. All companies meet the criteria."))
-            return
-
-        # Delete all companies that don't match the criteria
-        deleted_count, _ = Company.objects.exclude(
-            company_status="Active",
-            accounts_account_category__in=["FULL", "GROUP"],
-            accounts_next_due_date__gt=cutoff_date  # Exclude companies with a valid due date
-        ).delete()
-
-        self.stdout.write(self.style.SUCCESS(
-            f"Deleted {deleted_count} companies. Retained {retained_count} companies."
-        ))
-
-        logger.info(f"Cleanup complete: Deleted {deleted_count} companies, Retained {retained_count} companies.")

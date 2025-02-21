@@ -64,33 +64,35 @@
 
 {% if page_obj %}
 <!-- Filtered Companies Table -->
-<table class="table table-striped" id="company-table">
-    <thead>
-        <tr>
-            <th>Company Name</th>
-            <th>Company Number</th>
-            <th>Address</th>
-            <th>SIC Code</th>
-            <th>Next Due Date</th>
-        </tr>
-    </thead>
-    <tbody>
-        {% for company in page_obj %}
-         <tr class="company-row" 
-        data-company-number="{{ company.company_number }}" 
-        data-company-name="{{ company.company_name }}">
-            <td>{{ company.company_name }}</td>
-            <td>{{ company.company_number }}</td>
-            <td>
-                {{ company.reg_address_line1 }}, {{ company.reg_address_line2 }},
-                {{ company.reg_address_post_town }}, {{ company.reg_address_postcode }}
-            </td>
-            <td>{{ company.sic_code_1 }}</td>
-            <td>{{ company.accounts_next_due_date }}</td>
-        </tr>
-        {% endfor %}
-    </tbody>
-</table>
+<div class="table-container mt-4">
+    <table class="table table-striped" id="company-table">
+        <thead>
+            <tr>
+                <th>Company Name</th>
+                <th>Company Number</th>
+                <th>Address</th>
+                <th>SIC Code</th>
+                <th>Next Due Date</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for company in page_obj %}
+             <tr class="company-row" 
+            data-company-number="{{ company.company_number }}" 
+            data-company-name="{{ company.company_name }}">
+                <td>{{ company.company_name }}</td>
+                <td>{{ company.company_number }}</td>
+                <td>
+                    {{ company.reg_address_line1 }}, {{ company.reg_address_line2 }},
+                    {{ company.reg_address_post_town }}, {{ company.reg_address_postcode }}
+                </td>
+                <td>{{ company.sic_code_1 }}</td>
+                <td>{{ company.accounts_next_due_date }}</td>
+            </tr>
+            {% endfor %}
+        </tbody>
+    </table>
+</div>
 
 <!-- Pagination Controls -->
 <nav aria-label="Page navigation">
@@ -141,8 +143,36 @@
 {% else %}
 <p>No filters applied yet. Use the form above to filter the companies.</p>
 {% endif %}
-
 {% endblock %}
+
+{% block extra_css %}
+<style>
+   #company-table {
+       width: 100%;
+       border-collapse: collapse;
+   }
+
+   #company-table thead {
+       position: sticky;
+       top: 0;
+       background: white;
+       z-index: 100;
+   }
+
+   #company-table th {
+       padding: 10px;
+       text-align: left;
+       border-bottom: 2px solid #ddd;
+   }
+
+   .table-container {
+       max-height: 1250px;
+       overflow-y: auto;
+       border: 1px solid #ddd;
+   }
+</style>
+{% endblock %}
+
 
 {% block scripts %}
 <script>

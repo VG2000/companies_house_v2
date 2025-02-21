@@ -36,7 +36,7 @@ class Company(models.Model):
     uri = models.URLField(null=True, blank=True)
     conf_stmt_next_due_date = models.DateField(null=True, blank=True)
     conf_stmt_last_made_up_date = models.DateField(null=True, blank=True)
-    current_full_accounts = models.BooleanField(null=True, blank=True, default=False, db_index=True)
+    current_full_accounts = models.BooleanField(null=True, blank=True, default=False, db_index=True) # DO NOT NEED THIS ANY MORE
     full_accounts_paper_filed = models.BooleanField(null=True, blank=True, default=True, db_index=True)
     last_full_statement_url = models.URLField(null=True, blank=True)
 
@@ -44,7 +44,8 @@ class Company(models.Model):
         ordering = ['company_name']  # Default ordering for the model
 
     def __str__(self):
-        return self.company_name
+        return f"{self.company_name or 'Unknown Company'} ({self.company_number or 'No Number'})"
+
 
 
 # NOT SURE I NEED THIS MODEL?============================================================
@@ -182,3 +183,104 @@ class SicClass(models.Model):
         verbose_name = "SIC Class"
         verbose_name_plural = "SIC Classes"
         ordering = ["code"]
+
+
+class FinancialMetrics(models.Model):
+    # Income Statement Fields
+    TurnoverRevenue = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True)
+    CostSales = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True)
+    GrossProfitLoss = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True)
+    ProfitLoss = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True)
+    AdministrativeExpenses = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True)
+    OtherOperatingIncomeFormat1 = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True)
+    OperatingProfit = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True)
+    OperatingProfitLoss = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True)
+    OtherInterestRecievablesSimilarIncomeFinanceIncome = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True)
+    ProfitLossOnOrdinaryActivitiesBeforeTax = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True)
+    TaxTaxCreditOnProfitOrLossOnOrdinaryActivities = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True)
+    NetIncome = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True)
+    GrossProfit = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True)
+
+    # Balance Sheet Fields
+    IntangibleAssets = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True)
+    PropertyPlantEquipment = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True)
+    InvestmentsFixedAssets = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True)
+    FixedAssets = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True)
+    TotalInventories = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True)
+    Debtors = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True)
+    CashBankOnHand = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True)
+    CurrentAssets = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True)
+    TotalAssetsLessCurrentLiabilities = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True)
+    Creditors = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True)
+    TaxationIncludingDeferredTaxationBalanceSheetSubtotal = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True)
+    NetCurrentAssetsLiabilities = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True)
+    NetAssetsLiabilities = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True)
+
+    # Cash Flow Statement Fields
+    NetCashFlowsFromUsedInOperatingActivities = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True)
+    NetCashFlowsFromUsedInInvestingActivities = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True)
+    CashCashEquivalents = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True)
+    IncreaseDecreaseInCashCashEquivalents = models.DecimalField(max_digits=15, decimal_places=2, null=True, blank=True)
+
+    # Metadata
+    company_number = models.CharField(max_length=20, unique=True)
+    filing_date = models.DateField(null=True, blank=True)
+    company_name = models.CharField(max_length=255, null=True, blank=True)
+    sic_code_1 = models.CharField(max_length=255, null=True, blank=True)
+    sic_code_2 = models.CharField(max_length=255, null=True, blank=True)
+    sic_code_3 = models.CharField(max_length=255, null=True, blank=True)
+    sic_code_4 = models.CharField(max_length=255, null=True, blank=True)
+    postal_code = models.CharField(max_length=50, null=True, blank=True)
+    address_line_1 = models.CharField(max_length=255, null=True, blank=True)
+    address_line_2 = models.CharField(max_length=255, null=True, blank=True)
+    country = models.CharField(max_length=255, null=True, blank=True)
+    locality = models.CharField(max_length=255, null=True, blank=True)
+    
+
+    def __str__(self):
+        return f"Financial Metrics for Company {self.company_number} ({self.filing_date})"
+
+    class Meta:
+        verbose_name_plural = "Financial Metrics"
+
+
+class ITLLevel1(models.Model):
+    """International Territorial Level 1 (Highest Level)"""
+    code = models.CharField(max_length=10, unique=True, db_index=True)
+    name = models.CharField(max_length=255)
+
+    def __str__(self):
+        return f"{self.name} ({self.code})"
+
+
+class ITLLevel2(models.Model):
+    """ITL Level 2 (Sub-level of ITL1)"""
+    code = models.CharField(max_length=10, unique=True, db_index=True)
+    name = models.CharField(max_length=255)
+    level1 = models.ForeignKey(ITLLevel1, on_delete=models.CASCADE, related_name="itl2_regions")
+
+    def __str__(self):
+        return f"{self.name} ({self.code})"
+
+
+class LocalAdministrativeUnit(models.Model):
+    """Local Administrative Unit (LAU) referencing ITL2"""
+    code = models.CharField(max_length=10, unique=True, db_index=True)
+    name = models.CharField(max_length=255)
+    itl2 = models.ForeignKey(ITLLevel2, on_delete=models.CASCADE, related_name="laus")
+
+    def __str__(self):
+        return f"{self.name} ({self.code})"
+
+
+
+class Postcode(models.Model):
+    code = models.CharField(max_length=10, unique=True, db_index=True)
+    district = models.ForeignKey(
+        "company_data.LocalAdministrativeUnit", on_delete=models.CASCADE, related_name="postcodes"
+    )
+    latitude = models.FloatField(null=True, blank=True)
+    longitude = models.FloatField(null=True, blank=True)
+
+    def __str__(self):
+        return f"{self.name} ({self.code})"

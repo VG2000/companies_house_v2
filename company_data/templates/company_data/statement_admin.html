@@ -2,19 +2,45 @@
 
 {% block content %}
 <div class="container mt-4">
-    <h2>Statement Admin</h2>
+    <!-- Statement Processing Section -->
+    <div class="card p-3 mb-3">
+        <h5 class="card-title">Statement Processing</h5>
+        <div class="d-flex gap-2 flex-wrap">
+            <button id="trigger-last-full-statement-btn" class="btn btn-primary">Download Last Full Statements</button>
+            <button id="trigger-process-statements-btn" class="btn btn-secondary">Process Downloaded Statements To DB</button>
+        </div>
+    </div>
 
-    <!-- Buttons for Statement Processing -->
-    <button id="trigger-last-full-statement-btn" class="btn btn-primary">Download Last Full Statements</button>
-    <button id="trigger-process-statements-btn" class="btn btn-secondary">Process Downloaded Statements To DB</button>
+    <div class="card p-3 mb-3">
+        <h5 class="card-title">New Statement Processing</h5>
+        <div class="d-flex gap-2 flex-wrap">            
+            <button id="trigger-process-company-data-btn" class="btn btn-primary">Process Company Data CSV</button>
+            <button id="trigger-process-paper-filed-btn" class="btn btn-primary">Update Paper Filed</button>
+        </div>
+    </div>
 
-    <!-- Newly Added Buttons -->
-    <button id="update-companies-btn" class="btn btn-warning">Update Current Full Accounts</button> 
-    <button id="reset-companies-btn" class="btn btn-danger" type="button">Reset Current Full Accounts</button>
 
-    <!-- Status message -->
+    <!-- Account Management Section -->
+    <div class="card p-3 mb-3">
+        <h5 class="card-title">Account Management</h5>
+        <div class="d-flex gap-2 flex-wrap">
+            <button id="update-companies-btn" class="btn btn-primary">Update Current Full Accounts</button>
+            <button id="reset-companies-btn" class="btn btn-primary">Reset Current Full Accounts</button>
+        </div>
+    </div>
+
+    <!-- Financial Metrics Section -->
+    <div class="card p-3">
+        <h5 class="card-title">Financial Metrics</h5>
+        <div class="d-flex gap-2">
+            <button id="update-financial-metrics-btn" class="btn btn-warning">Update Financial Metrics</button>
+        </div>
+    </div>
+
+    <!-- Status Message -->
     <div id="status-message" class="alert d-none mt-3"></div>
 </div>
+
 
 <script>
     function triggerView(url, statusMessageElement, buttonElement) {
@@ -55,24 +81,12 @@
             });
     }
 
-    // Attach event listeners to all buttons
-    document.getElementById("trigger-last-full-statement-btn").addEventListener("click", function () {
-        triggerView("{% url 'get_last_full_statement_file_type' %}", document.getElementById("status-message"), this);
+    // Attach event listener for the new Process Company Data button
+    document.getElementById("trigger-process-company-data-btn").addEventListener("click", function () {
+        triggerView("{% url 'process_company_data' %}", document.getElementById("status-message"), this);
     });
-
-    document.getElementById("trigger-process-statements-btn").addEventListener("click", function () {
-        triggerView("{% url 'process_all_statements' %}", document.getElementById("status-message"), this);
-    });
-
-    // New buttons for updating and resetting full accounts
-    document.getElementById("update-companies-btn").addEventListener("click", function () {
-        triggerView("{% url 'update_current_full_accounts' %}", document.getElementById("status-message"), this);
-    });
-
-    document.getElementById("reset-companies-btn").addEventListener("click", function () {
-        if (confirm("Are you sure you want to reset all current full accounts? This action cannot be undone.")) {
-            triggerView("{% url 'reset_current_full_accounts' %}", document.getElementById("status-message"), this);
-        }
+    document.getElementById("trigger-process-paper-filed-btn").addEventListener("click", function () {
+        triggerView("{% url 'update_accounts_paper_filed' %}", document.getElementById("status-message"), this);
     });
 </script>
 {% endblock %}
