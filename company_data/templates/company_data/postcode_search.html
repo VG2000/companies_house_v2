@@ -1,0 +1,27 @@
+{% extends 'company_data/base.html' %}
+
+{% block title %}Postcode Search{% endblock %}
+
+{% block content %}
+<h1>Postcode Search</h1>
+
+<form method="get" class="mb-4">
+    <div class="mb-3">
+        <label for="postcode">Enter Postcode:</label>
+        <input type="text" id="postcode" name="postcode" class="form-control w-auto" maxlength="8" required>
+    </div>
+    <button type="submit" class="btn btn-primary">Search</button>
+</form>
+
+{% if postcode_record %}
+    <h2>Postcode Information</h2>
+    <ul>
+        <li><strong>Postcode:</strong> {{ postcode_record.code }}</li>
+        <li><strong>Postcode District:</strong> {{ postcode_record.district }}</li>
+        <li><strong>Postcode Latitude:</strong> {{ postcode_record.latitude }}</li>
+        <li><strong>Postcode Longitude:</strong> {{ postcode_record.longitude }}</li>
+    </ul>
+{% elif error %}
+    <p class="text-danger">{{ error }}</p>
+{% endif %}
+{% endblock %}

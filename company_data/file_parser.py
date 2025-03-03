@@ -1,15 +1,11 @@
 import zipfile
-import mimetypes
 import os
-from collections import defaultdict
 from pathlib import Path
 from lxml import etree
 import logging
 import base64
 import requests
 import time
-import zipfile
-import json
 import re
 from decimal import Decimal, InvalidOperation
 from django.db import transaction, IntegrityError

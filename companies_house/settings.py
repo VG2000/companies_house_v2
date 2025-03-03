@@ -12,6 +12,18 @@ https://docs.djangoproject.com/en/5.1/ref/settings/
 
 from pathlib import Path
 import os
+import socket
+
+def get_internal_ip():
+    """Attempt to detect the internal IP address of the running container."""
+    try:
+        hostname = socket.gethostname()
+        internal_ip = socket.gethostbyname(hostname)
+        return internal_ip
+    except Exception as e:
+        # Optional: Log if needed
+        print(f"Error determining internal IP: {e}")
+        return None
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -25,7 +37,21 @@ SECRET_KEY = 'django-insecure-4vxmbp@&46aots%*$tkzxx11_^o^@vj6eq^+*b9p7j7_g=9xhx
 
 # SECURITY WARNING: don't run with debug turned on in production!
 DEBUG = True
-ALLOWED_HOSTS = os.getenv("ALLOWED_HOSTS", "localhost,127.0.0.1").split(",")
+
+# Load ALLOWED_HOSTS from environment or use a fallback
+ALLOWED_HOSTS = os.getenv("ALLOWED_HOSTS", "").split(",")
+
+# Get the current internal IP address (Lightsail private IP)
+internal_ip = get_internal_ip()
+if internal_ip:
+    ALLOWED_HOSTS.append(internal_ip)
+
+# Add localhost for good measure (useful for dev or health checks)
+ALLOWED_HOSTS.append("localhost")
+
+# Clean out empty strings from ALLOWED_HOSTS
+ALLOWED_HOSTS = [host for host in ALLOWED_HOSTS if host]
+
 # Ensure Django's CSRF protection works with AWS Lightsail
 CSRF_TRUSTED_ORIGINS = [f"https://{host}" for host in ALLOWED_HOSTS if not host.startswith("localhost")]
 
@@ -138,11 +164,12 @@ USE_TZ = True
 # Static files (CSS, JavaScript, Images)
 # https://docs.djangoproject.com/en/5.1/howto/static-files/
 
-STATIC_URL = '/static/'  # URL to access static files
-STATIC_ROOT = os.path.join(BASE_DIR, 'staticfiles')  # Directory where static files are collected
-STATICFILES_DIRS = [
-    os.path.join(BASE_DIR, 'static'),
-]
+# Static settings
+STATIC_URL = "/static/"
+STATIC_ROOT = os.path.join(BASE_DIR, "staticfiles")
+
+# Only add STATICFILES_DIRS if the directory exists
+STATICFILES_DIRS = [os.path.join(BASE_DIR, "static")] if os.path.exists(os.path.join(BASE_DIR, "static")) else []
 
 
 MEDIA_URL = '/media/'
@@ -170,24 +197,35 @@ LOGGING = {
         'file': {
             'level': 'ERROR', 
             'class': 'logging.FileHandler',
-            'filename': 'application.log',  # Save logs to a dedicated application log file
+            'filename': 'application.log',  # Main application logs
             'formatter': 'verbose',
         },
         'console': {
             'level': 'DEBUG', 
-            'class': 'logging.StreamHandler',  # Prints logs to the console
-            'formatter': 'simple',  # Uses the 'simple' format
+            'class': 'logging.StreamHandler',
+            'formatter': 'simple',
+        },
+        'test_file': {  # New handler for test.log
+            'level': 'DEBUG',
+            'class': 'logging.FileHandler',
+            'filename': 'test.log',  # Log test-specific messages
+            'formatter': 'verbose',
         },
     },
     'loggers': {
         'django': {
-            'handlers': ['file', 'console'],  # Logs to both file and console
-            'level': 'WARNING',  # ✅ Change from WARNING to DEBUG
+            'handlers': ['file', 'console'],
+            'level': 'WARNING',
             'propagate': False,
         },
         'company_data': { 
-            'handlers': ['file', 'console'],  # Logs to both file and console
-            'level': 'DEBUG',  # ✅ Ensures company_data logs appear
+            'handlers': ['file', 'console'],
+            'level': 'DEBUG',
+            'propagate': False,
+        },
+        'test_logger': {  # New logger for test functions
+            'handlers': ['test_file', 'console'],
+            'level': 'DEBUG',
             'propagate': False,
         },
     },

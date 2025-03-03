@@ -6,6 +6,7 @@ __pycache__/
 # Exclude virtual environment directories
 venv/
 env/
+.venv/
 
 # Exclude logs and temporary files
 *.log
@@ -27,5 +28,5 @@ docker-compose.yml
 # Exclude environment variables
 .env
 
-# Exclude database files
-data/
+# # Exclude database files
+# data/

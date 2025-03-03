@@ -26,6 +26,13 @@ urlpatterns = [
     path("update-financial-metrics/", views.update_financial_metrics, name="update_financial_metrics"),
     path("process-company-data/", views.process_company_data_view, name="process_company_data"),
     path('update-accounts-paper-filed/', views.update_accounts_paper_filed_view, name='update_accounts_paper_filed'),
+    path('get-itl2/', views.get_itl2, name='get_itl2'),
+    path('get-ltl3/', views.get_itl3, name='get_itl3'),
+    path('get-lau/', views.get_lau, name='get_lau'),
+    path('postcode-search/', views.search_postcode, name='search_postcode'),
+    path("process-statements-test/", views.test_process_statements_view, name="process_statements_test"),
+    path("update-company-model-test/", views.test_fetch_and_update_company_data_view, name="update_company_model_test"),
+    path("test-fetch-and-parse-statement/", views.test_fetch_and_parse_first_statement_view, name="test_fetch_and_parse_first_statement"),
     # path("financial-statements/filter/", financial_statements_filter, name="financial_statements_filter"),
 ]
 

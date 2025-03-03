@@ -4,7 +4,7 @@ import os
 import mimetypes
 from django.db.models import Q
 from django.core.cache import cache
-from django.shortcuts import render
+from django.shortcuts import render, get_object_or_404
 from django import forms
 from django.core.paginator import Paginator
 from django.http import JsonResponse
@@ -19,11 +19,23 @@ import logging
 import json
 import time
 from company_data.forms import CompanyFilterForm
-from company_data.models import Company, FinancialStatement, CompanyOfInterest, SicClass, SicDivision, SicGroup, FinancialMetrics
+from company_data.models import (Company, 
+                                 FinancialStatement, 
+                                 CompanyOfInterest, 
+                                 SicClass, 
+                                 SicDivision, 
+                                 SicGroup, 
+                                 FinancialMetrics, 
+                                 ITLLevel1,
+                                 ITLLevel2,
+                                 ITLLevel3,
+                                 LocalAdministrativeUnit,
+                                 Postcode,
+)
 from company_data.utils import parse_and_save_financial_statement
 from company_data.file_parser import parse_zip_files
 from company_data.companies_house_company_parser import process_company_data, fetch_and_update_company_data
-
+from company_data.test_parser import test_process_statements, test_fetch_and_update_company_data, fetch_and_parse_all_statements
 
 # Configure logging
 logger = logging.getLogger("company_data")
@@ -38,6 +50,40 @@ SAVE_PATH = os.path.abspath("./statements")  # Saves to ./statements/
 
 # Ensure the directory exists
 os.makedirs(SAVE_PATH, exist_ok=True)
+
+@csrf_exempt  # Allows AJAX POST request without CSRF token
+def test_fetch_and_parse_first_statement_view(request):
+    if request.method == "POST":
+        try:
+            fetch_and_parse_all_statements()  # Calls the function to process statements
+            return JsonResponse({"status": "success", "message": "Statements processed successfully!"})
+        except Exception as e:
+            logger.error(f"Error processing statements: {e}")
+            return JsonResponse({"status": "error", "message": "Error processing statements."}, status=500)
+    return JsonResponse({"status": "error", "message": "Invalid request method."}, status=400)
+
+@csrf_exempt  # Allows AJAX POST request without CSRF token
+def test_process_statements_view(request):
+    if request.method == "POST":
+        try:
+            test_process_statements()  # Calls the function to process statements
+            return JsonResponse({"status": "success", "message": "Statements processed successfully!"})
+        except Exception as e:
+            logger.error(f"Error processing statements: {e}")
+            return JsonResponse({"status": "error", "message": "Error processing statements."}, status=500)
+    return JsonResponse({"status": "error", "message": "Invalid request method."}, status=400)
+
+
+@csrf_exempt  # Allows AJAX POST request without CSRF token
+def test_fetch_and_update_company_data_view(request):
+    if request.method == "POST":
+        try:
+            test_fetch_and_update_company_data()  # Calls the function to process statements
+            return JsonResponse({"status": "success", "message": "Company model updated successfully!"})
+        except Exception as e:
+            logger.error(f"Error updating Ccompany model: {e}")
+            return JsonResponse({"status": "error", "message": "Error updating company model."}, status=500)
+    return JsonResponse({"status": "error", "message": "Invalid request method."}, status=400)
 
 @csrf_exempt
 def process_company_data_view(request):
@@ -467,6 +513,52 @@ def available_sic_codes_view(request):
         "sic_tree": sic_tree
     })
 
+def get_groups(request):
+    division_code = request.GET.get("division_code")
+    groups = SicGroup.objects.filter(division__code=division_code) if division_code else SicGroup.objects.all()
+    data = [{"code": group.code, "description": group.description} for group in groups]
+    return JsonResponse(data, safe=False)
+
+def get_classes(request):
+    group_code = request.GET.get("group_code")
+    classes = SicClass.objects.filter(group__code=group_code) if group_code else SicClass.objects.all()
+    data = [{"code": cls.code, "description": cls.description} for cls in classes]
+    return JsonResponse(data, safe=False)
+
+def get_itl2(request):
+    """Returns ITL Level 2 options based on selected ITL Level 1"""
+    itl1_code = request.GET.get("itl1_code")
+    itl2_levels = ITLLevel2.objects.filter(itl1__code=itl1_code).order_by("name") if itl1_code else ITLLevel2.objects.all()
+    data = [{"code": level.code, "name": level.name} for level in itl2_levels]
+    return JsonResponse(data, safe=False)
+
+def get_itl3(request):
+    """Returns ITL Level 3 options based on selected ITL Level 2"""
+    itl2_code = request.GET.get("itl2_code")
+    itl3_levels = ITLLevel3.objects.filter(itl2__code=itl2_code).order_by("name") if itl2_code else ITLLevel3.objects.all()
+    data = [{"code": level.code, "name": level.name} for level in itl3_levels]
+    return JsonResponse(data, safe=False)
+
+def get_lau(request):
+    """Returns Local Administrative Units (LAU) based on selected ITL Level 3"""
+    itl3_code = request.GET.get("itl3_code")
+    lau_levels = LocalAdministrativeUnit.objects.filter(itl3__code=itl3_code).order_by("name") if itl3_code else LocalAdministrativeUnit.objects.all()
+    data = [{"code": level.code, "name": level.name} for level in lau_levels]
+    return JsonResponse(data, safe=False)
+
+def search_postcode(request):
+    query = request.GET.get("postcode", "").strip()
+    error = ""
+    if not query:
+        error = f"No data found for postcode: {query}"
+
+    postcode_record = Postcode.objects.filter(code=query).first()
+    logger.info(f"Postcode record for {query}: {postcode_record}")
+    return render(request, 'company_data/postcode_search.html', {
+        'postcode_record': postcode_record,
+        'error': error,
+    })
+
 def company_filter_view(request):
     logger.info("Entering company_filter_view")
 
@@ -482,9 +574,25 @@ def company_filter_view(request):
 
     logger.info(f"Fetched SIC Divisions: {divisions.count()}, SIC Groups: {groups.count()}, SIC Classes: {classes.count()}")
 
+    # Fetch ITL regions for dependent filtering
+    logger.info("Fetching ITL codes from ITL models")
+    itl1_levels = ITLLevel1.objects.all().order_by('name')
+    itl2_levels = ITLLevel2.objects.all().order_by('name')
+    itl3_levels = ITLLevel3.objects.all().order_by('name')
+    lau_levels = LocalAdministrativeUnit.objects.all().order_by('name')
+
+    logger.info(f"Fetched ITL Levels - ITL1: {itl1_levels.count()}, ITL2: {itl2_levels.count()}, ITL3: {itl3_levels.count()}, LAU: {lau_levels.count()}")
+
+    # Get selected filters from request
     selected_division = request.GET.get('division')
     selected_group = request.GET.get('group')
     selected_class = request.GET.get('class')
+
+    selected_itl1 = request.GET.get('itl1')
+    selected_itl2 = request.GET.get('itl2')
+    selected_itl3 = request.GET.get('itl3')
+    selected_lau = request.GET.get('lau')
+
     # Initialize form
     form = CompanyFilterForm(request.GET or None)
 
@@ -492,19 +600,33 @@ def company_filter_view(request):
     filtered_companies = Company.objects.none()  # Default empty queryset
     page_obj = None
 
-    #logger.info("Checking if filters are applied")
     if request.GET and form.is_valid():
         logger.info("Filters applied, validating form data")
         try:
             filters = Q()
             logger.info(f"Filter criteria - Division: {selected_division}, Group: {selected_group}, Class: {selected_class}")
 
+            # SIC Filtering Logic
             if selected_class:
                 filters &= Q(sic_code_1__startswith=selected_class)  # Match full 6 digits
             if selected_group:
                 filters &= Q(sic_code_1__startswith=selected_group)  # Match first 3 digits
             if selected_division:
                 filters &= Q(sic_code_1__startswith=selected_division)  # Match first 2 digits
+
+            # ITL Filtering Logic
+            if selected_lau:
+                filters &= Q(reg_address_postcode__in=Postcode.objects.filter(district__code=selected_lau).values_list("code", flat=True))
+
+            elif selected_itl3:
+                filters &= Q(reg_address_postcode__in=Postcode.objects.filter(district__itl3__code=selected_itl3).values_list("code", flat=True))
+
+            elif selected_itl2:
+                filters &= Q(reg_address_postcode__in=Postcode.objects.filter(district__itl3__itl2__code=selected_itl2).values_list("code", flat=True))
+
+            elif selected_itl1:
+                filters &= Q(reg_address_postcode__in=Postcode.objects.filter(district__itl3__itl2__itl1__code=selected_itl1).values_list("code", flat=True))
+
 
             logger.info(f"Applying filters: {filters}")
 
@@ -532,6 +654,14 @@ def company_filter_view(request):
         'selected_division': selected_division,
         'selected_group': selected_group,
         'selected_class': selected_class,
+        'itl1_levels': itl1_levels,
+        'itl2_levels': itl2_levels,
+        'itl3_levels': itl3_levels,
+        'lau_levels': lau_levels,
+        'selected_itl1': selected_itl1,
+        'selected_itl2': selected_itl2,
+        'selected_itl3': selected_itl3,
+        'selected_lau': selected_lau,
     })
 
 
@@ -890,17 +1020,7 @@ def new_financial_statements_list(request):
     )
 
 
-def get_groups(request):
-    division_code = request.GET.get("division_code")
-    groups = SicGroup.objects.filter(division__code=division_code) if division_code else SicGroup.objects.all()
-    data = [{"code": group.code, "description": group.description} for group in groups]
-    return JsonResponse(data, safe=False)
 
-def get_classes(request):
-    group_code = request.GET.get("group_code")
-    classes = SicClass.objects.filter(group__code=group_code) if group_code else SicClass.objects.all()
-    data = [{"code": cls.code, "description": cls.description} for cls in classes]
-    return JsonResponse(data, safe=False)
 
 def model_field_counts(request):
     """

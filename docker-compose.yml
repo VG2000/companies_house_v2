@@ -21,9 +21,9 @@ services:
     ports:
       - "5432:5432"
     environment:
-      POSTGRES_USER: dbmasteruser
+      POSTGRES_USER: django
       POSTGRES_PASSWORD: django
-      POSTGRES_DB: dbmaster
+      POSTGRES_DB: django_db
     env_file:
       - companies_house/.env
 

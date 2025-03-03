@@ -17,7 +17,7 @@ python manage.py create_prod_superuser || true
 
 # Populate SIC codes
 echo "Populating SIC codes..."
-python manage.py populate_sic || true
+python manage.py load_sic_data || true
 
 # Load data at startup
 RUN python manage.py load_geodata || true

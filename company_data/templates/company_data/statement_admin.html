@@ -3,19 +3,22 @@
 {% block content %}
 <div class="container mt-4">
     <!-- Statement Processing Section -->
-    <div class="card p-3 mb-3">
-        <h5 class="card-title">Statement Processing</h5>
-        <div class="d-flex gap-2 flex-wrap">
-            <button id="trigger-last-full-statement-btn" class="btn btn-primary">Download Last Full Statements</button>
-            <button id="trigger-process-statements-btn" class="btn btn-secondary">Process Downloaded Statements To DB</button>
-        </div>
+    <!-- Statement Processing Section -->
+<div class="card p-3 mb-3">
+    <h5 class="card-title">Statement Processing</h5>
+    <div class="d-flex gap-2 flex-wrap">
+        <button id="trigger-last-full-statement-btn" class="btn btn-primary">Download Last Full Statements</button>
+        <button id="trigger-process-statements-btn" class="btn btn-secondary">Process Downloaded Statements To DB</button>
     </div>
+</div>
+
 
     <div class="card p-3 mb-3">
         <h5 class="card-title">New Statement Processing</h5>
         <div class="d-flex gap-2 flex-wrap">            
             <button id="trigger-process-company-data-btn" class="btn btn-primary">Process Company Data CSV</button>
-            <button id="trigger-process-paper-filed-btn" class="btn btn-primary">Update Paper Filed</button>
+            <button id="trigger-process-paper-filed-btn" class="btn btn-primary">Update Paper Filed And Save to CSV</button>
+            <button id="trigger-process-unfiled-statement-data-btn" class="btn btn-primary">Test HTML Parser</button>
         </div>
     </div>
 
@@ -85,8 +88,15 @@
     document.getElementById("trigger-process-company-data-btn").addEventListener("click", function () {
         triggerView("{% url 'process_company_data' %}", document.getElementById("status-message"), this);
     });
-    document.getElementById("trigger-process-paper-filed-btn").addEventListener("click", function () {
-        triggerView("{% url 'update_accounts_paper_filed' %}", document.getElementById("status-message"), this);
+    // Attach event listener for the new Process Company Data button
+    document.getElementById("trigger-process-unfiled-statement-data-btn").addEventListener("click", function () {
+        triggerView("{% url 'test_fetch_and_parse_first_statement' %}", document.getElementById("status-message"), this);
     });
+    document.getElementById("trigger-process-paper-filed-btn").addEventListener("click", function () {
+        triggerView("{% url 'update_company_model_test' %}", document.getElementById("status-message"), this);
+    });
+    document.getElementById("trigger-process-statements-btn").addEventListener("click", function () {
+        triggerView("{% url 'process_statements_test' %}", document.getElementById("status-message"), this);
+    })
 </script>
 {% endblock %}

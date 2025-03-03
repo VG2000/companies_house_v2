@@ -137,6 +137,11 @@ class FinancialStatement(models.Model):
     def __str__(self):
         return f"Financial Statement for {self.company_number} - {self.company_name}"
 
+    class Meta:
+        verbose_name = "Financial Statement"
+        verbose_name_plural = "Financial Statements"
+        
+
 class CompanyOfInterest(models.Model):
     company_number = models.CharField(max_length=50, db_index=True, unique=True)
     company_name = models.CharField(max_length=255, null=True, blank=True)
@@ -251,26 +256,50 @@ class ITLLevel1(models.Model):
 
     def __str__(self):
         return f"{self.name} ({self.code})"
+    
+    class Meta:
+        verbose_name = "ITL Level 1"
+        verbose_name_plural = "ITL Level 1"
 
 
 class ITLLevel2(models.Model):
     """ITL Level 2 (Sub-level of ITL1)"""
     code = models.CharField(max_length=10, unique=True, db_index=True)
     name = models.CharField(max_length=255)
-    level1 = models.ForeignKey(ITLLevel1, on_delete=models.CASCADE, related_name="itl2_regions")
+    itl1 = models.ForeignKey(ITLLevel1, on_delete=models.CASCADE, related_name="itl2_regions")
 
     def __str__(self):
         return f"{self.name} ({self.code})"
+
+    class Meta:
+        verbose_name = "ITL Level 2"
+        verbose_name_plural = "ITL Level 2"    
+
+class ITLLevel3(models.Model):
+    """ITL Level 3 (Sub-level of ITL1)"""
+    code = models.CharField(max_length=10, unique=True, db_index=True)
+    name = models.CharField(max_length=255)
+    itl2 = models.ForeignKey(ITLLevel2, on_delete=models.CASCADE, related_name="itl3_regions")
+
+    def __str__(self):
+        return f"{self.name} ({self.code})"
+    
+    class Meta:
+        verbose_name = "ITL Level 3"
+        verbose_name_plural = "ITL Level 3"
 
 
 class LocalAdministrativeUnit(models.Model):
-    """Local Administrative Unit (LAU) referencing ITL2"""
     code = models.CharField(max_length=10, unique=True, db_index=True)
     name = models.CharField(max_length=255)
-    itl2 = models.ForeignKey(ITLLevel2, on_delete=models.CASCADE, related_name="laus")
+    itl3 = models.ForeignKey(ITLLevel3, on_delete=models.CASCADE, related_name="lau", null=True, blank=True)  # TEMP ALLOW NULL
 
     def __str__(self):
         return f"{self.name} ({self.code})"
+    
+    class Meta:
+        verbose_name = "Local Admin Unit"
+        verbose_name_plural = "Local Admin Units"
 
 
 
@@ -283,4 +312,8 @@ class Postcode(models.Model):
     longitude = models.FloatField(null=True, blank=True)
 
     def __str__(self):
-        return f"{self.name} ({self.code})"
+        return f"{self.code} ({self.district})"
+    
+    class Meta:
+        verbose_name = "Postcode"
+        verbose_name_plural = "Postcodes"

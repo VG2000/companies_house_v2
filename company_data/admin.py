@@ -13,7 +13,6 @@ from .models import (
     ITLLevel2,
     ITLLevel3,
     LocalAdministrativeUnit,
-    LocalAuthorityDistrict,
     Postcode,
     )
 from django.urls import path
@@ -68,7 +67,6 @@ admin.site.register(ITLLevel1)
 admin.site.register(ITLLevel2)
 admin.site.register(ITLLevel3)
 admin.site.register(LocalAdministrativeUnit)
-admin.site.register(LocalAuthorityDistrict)
 admin.site.register(Postcode)
 
 

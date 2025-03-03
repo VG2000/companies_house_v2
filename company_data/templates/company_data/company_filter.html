@@ -48,6 +48,54 @@
         </div>
     </div>
 
+    <!-- ITL Filters -->
+    <div class="row mt-3">
+        <div class="col-md-3">
+            <label for="itl1" class="form-label">ITL Level 1</label>
+            <select name="itl1" id="itl1" class="form-select">
+                <option value="">All ITL1 Levels</option>
+                {% for level in itl1_levels %}
+                <option value="{{ level.code }}" {% if request.GET.itl1 == level.code %}selected{% endif %}>
+                    {{ level.name }} ({{ level.code }})
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-md-3">
+            <label for="itl2" class="form-label">ITL Level 2</label>
+            <select name="itl2" id="itl2" class="form-select">
+                <option value="">All ITL2 Levels</option>
+                {% for level in itl2_levels %}
+                <option value="{{ level.code }}" {% if request.GET.itl2 == level.code %}selected{% endif %}>
+                    {{ level.name }} ({{ level.code }})
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-md-3">
+            <label for="itl3" class="form-label">ITL Level 3</label>
+            <select name="itl3" id="itl3" class="form-select">
+                <option value="">All ITL3 Levels</option>
+                {% for level in itl3_levels %}
+                <option value="{{ level.code }}" {% if request.GET.itl3 == level.code %}selected{% endif %}>
+                    {{ level.name }} ({{ level.code }})
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+        <div class="col-md-3">
+            <label for="lau" class="form-label">Local Admin Unit (LAU)</label>
+            <select name="lau" id="lau" class="form-select">
+                <option value="">All Local Admin Units</option>
+                {% for level in lau_levels %}
+                <option value="{{ level.code }}" {% if request.GET.lau == level.code %}selected{% endif %}>
+                    {{ level.name }} ({{ level.code }})
+                </option>
+                {% endfor %}
+            </select>
+        </div>
+    </div>
+
   <!-- Submit & Reset Buttons -->
 <button type="submit" class="btn btn-primary mt-4">Filter</button>
 <button type="button" id="reset-filters-button" class="btn btn-secondary mt-4">Reset Filters</button>
@@ -141,7 +189,7 @@
 </nav>
 
 {% else %}
-<p>No filters applied yet. Use the form above to filter the companies.</p>
+<p class="mt-2">No filters applied yet. Use the form above to filter the companies.</p>
 {% endif %}
 {% endblock %}
 
@@ -176,96 +224,112 @@
 
 {% block scripts %}
 <script>
-document.addEventListener("DOMContentLoaded", function () {
+   document.addEventListener("DOMContentLoaded", function () {
     const divisionSelect = document.getElementById("division");
     const groupSelect = document.getElementById("group");
     const classSelect = document.getElementById("class");
+
+    const itl1Select = document.getElementById("itl1");
+    const itl2Select = document.getElementById("itl2");
+    const itl3Select = document.getElementById("itl3");
+    const lauSelect = document.getElementById("lau");
+
+    const resetButton = document.getElementById("reset-filters-button");
+    const filterButton = document.getElementById("apply-filters-button");
+    const filterForm = document.getElementById("filter-form");
 
     const table = document.getElementById("company-table");
     const selectedCompanySpan = document.getElementById("selected-company");
     const viewFilingHistoryButton = document.getElementById("view-filing-history-button");
     const addToInterestButton = document.getElementById("add-to-interest-button");
-    const resetButton = document.getElementById("reset-filters-button");
-
-    resetButton.addEventListener("click", function () {
-        // Redirect to the base URL without any query parameters
-        window.location.href = "{% url 'filter_companies' %}";
-    });
 
     let selectedCompanyNumber = null;
     let selectedCompanyName = null;
 
-    // Check if table exists before adding event listener
-    if (table) {
+     // ✅ Ensure buttons exist before adding event listeners
+     if (resetButton) {
+        resetButton.addEventListener("click", function () {
+            const baseUrl = window.location.origin + window.location.pathname;
+            window.location.href = baseUrl; // Reset URL
+        });
+    }
+        // ✅ Fix: Ensure `addToInterestButton` exists before modifying it
+        if (addToInterestButton !== null) {
+        addToInterestButton.disabled = true;
+    }
+
+    // ✅ Fix: Ensure `filterButton` exists before using it
+    if (filterButton !== null) {
+        filterButton.addEventListener("click", function (event) {
+            event.preventDefault(); // Prevent accidental form submission
+            filterForm.submit(); // Only submit when the button is clicked
+        });
+    }
+
+    // ✅ Ensure reset button exists before adding event listener
+    if (resetButton) {
+        resetButton.addEventListener("click", function () {
+            const baseUrl = window.location.origin + window.location.pathname;
+            window.location.href = baseUrl; // Reset URL without query params
+        });
+    }
+
+        // ✅ Add click event to each row in the table
+        if (table) {
         table.addEventListener("click", function (event) {
             const row = event.target.closest("tr");
+
+            // Ignore clicks outside of table rows
             if (!row || !row.dataset.companyNumber) return;
 
+            // Remove 'table-active' class from all rows
+            document.querySelectorAll(".company-row").forEach(r => r.classList.remove("table-active"));
+
             // Highlight the selected row
-            [...table.querySelectorAll("tr")].forEach(r => r.classList.remove("table-active"));
             row.classList.add("table-active");
 
-            // Store the selected company number and name globally
+            // Get selected company details
             selectedCompanyNumber = row.dataset.companyNumber;
             selectedCompanyName = row.dataset.companyName;
 
-            if (selectedCompanySpan) {
-                selectedCompanySpan.textContent = `Selected Company: ${selectedCompanyName}`;
-            }
+            // Update the displayed selected company
+            selectedCompanySpan.textContent = `Selected Company: ${selectedCompanyName} (${selectedCompanyNumber})`;
 
-            // Enable the buttons
-            const viewFilingHistoryButton = document.getElementById("view-filing-history-button");
-            const addToInterestButton = document.getElementById("add-to-interest-button");
-
+            // Enable the action buttons if they exist
             if (viewFilingHistoryButton) viewFilingHistoryButton.disabled = false;
             if (addToInterestButton) addToInterestButton.disabled = false;
         });
     }
 
-    // Add click event to the "View Filing History" button
-    if (viewFilingHistoryButton) {
+     // ✅ Add click event to "View Filing History" button
+     if (viewFilingHistoryButton) {
         viewFilingHistoryButton.addEventListener("click", function () {
             if (!selectedCompanyNumber) {
                 alert("Please select a company first.");
                 return;
             }
+
+            // Construct the filing history URL
             const filingHistoryUrl = `https://find-and-update.company-information.service.gov.uk/company/${selectedCompanyNumber}/filing-history`;
+
+            // Open the URL in a new browser tab
             window.open(filingHistoryUrl, "_blank");
         });
+
+        // ✅ Disable buttons initially
+        viewFilingHistoryButton.disabled = true;
     }
-
-    // Add click event to the "Add to Interests" button
-    if (addToInterestButton) {
-        addToInterestButton.addEventListener("click", function () {
-            console.log("Adding company to interests:", selectedCompanyNumber); // Debugging log
-
-            if (!selectedCompanyNumber) {
-                alert("Please select a company first.");
-                return;
-            }
-            fetch("{% url 'add_to_interest' %}", {
-                method: "POST",
-                headers: {
-                    "Content-Type": "application/json",
-                    "X-CSRFToken": "{{ csrf_token }}",
-                },
-                body: JSON.stringify({ company_number: selectedCompanyNumber }),
-            }).then(response => response.json()).then(data => alert(data.message || "Company added!"));
-        });
-    }
-   
-
+    
     function fetchOptions(endpoint, params, targetSelect, selectedValue, resetTarget = null) {
-        console.log(`Fetching ${endpoint} with params:`, params);
-
         fetch(`${endpoint}?${new URLSearchParams(params)}`)
             .then(response => response.json())
             .then(data => {
                 targetSelect.innerHTML = `<option value="">All ${targetSelect.id.charAt(0).toUpperCase() + targetSelect.id.slice(1)}</option>`;
+
                 data.forEach(item => {
                     const option = document.createElement("option");
                     option.value = item.code;
-                    option.textContent = `${item.code} - ${item.description}`;
+                    option.textContent = `${item.code} - ${item.description || item.name}`;
                     if (selectedValue && selectedValue === item.code) {
                         option.selected = true;
                     }
@@ -279,38 +343,48 @@ document.addEventListener("DOMContentLoaded", function () {
             .catch(error => console.error("Error fetching options:", error));
     }
 
-    // Preserve selected values from the backend
-    const selectedGroup = "{{ request.GET.group|default:'' }}";
-    const selectedClass = "{{ request.GET.class|default:'' }}";
+    /** ✅ Forward Filtering (Standard Behavior) **/
+    divisionSelect.addEventListener("change", function () {
+        fetchOptions("{% url 'get_groups' %}", { division_code: this.value }, groupSelect, null, classSelect);
+    });
 
+    groupSelect.addEventListener("change", function () {
+        fetchOptions("{% url 'get_classes' %}", { group_code: this.value }, classSelect);
+    });
+
+    itl1Select.addEventListener("change", function () {
+        fetchOptions("{% url 'get_itl2' %}", { itl1_code: this.value }, itl2Select, null, itl3Select);
+    });
+
+    itl2Select.addEventListener("change", function () {
+        fetchOptions("{% url 'get_itl3' %}", { itl2_code: this.value }, itl3Select, null, lauSelect);
+    });
+
+    itl3Select.addEventListener("change", function () {
+        fetchOptions("{% url 'get_lau' %}", { itl3_code: this.value }, lauSelect);
+    });
+
+
+    /** ✅ Populate Filters on Page Load **/
     if (divisionSelect.value) {
-        fetchOptions("{% url 'get_groups' %}", { division_code: divisionSelect.value }, groupSelect, selectedGroup, classSelect);
+        fetchOptions("{% url 'get_groups' %}", { division_code: divisionSelect.value }, groupSelect, "{{ request.GET.group|default:'' }}", classSelect);
     }
-
     if (groupSelect.value) {
-        fetchOptions("{% url 'get_classes' %}", { group_code: groupSelect.value }, classSelect, selectedClass);
+        fetchOptions("{% url 'get_classes' %}", { group_code: groupSelect.value }, classSelect, "{{ request.GET.class|default:'' }}");
     }
-
-    // Handle dropdown changes
-    divisionSelect.addEventListener("change", () => {
-        const divisionCode = divisionSelect.value;
-        if (divisionCode) {
-            console.log('Here!')
-            fetchOptions("{% url 'get_groups' %}", { division_code: divisionCode }, groupSelect, null, classSelect);
-        } else {
-            groupSelect.innerHTML = `<option value="">All Groups</option>`;
-            classSelect.innerHTML = `<option value="">All Classes</option>`;
-        }
-    });
-
-    groupSelect.addEventListener("change", () => {
-        const groupCode = groupSelect.value;
-        if (groupCode) {
-            fetchOptions("{% url 'get_classes' %}", { group_code: groupCode }, classSelect);
-        } else {
-            classSelect.innerHTML = `<option value="">All Classes</option>`;
-        }
-    });
+    if (itl1Select.value) {
+        fetchOptions("{% url 'get_itl2' %}", { itl1_code: itl1Select.value }, itl2Select, "{{ request.GET.itl2|default:'' }}", itl3Select);
+    }
+    if (itl2Select.value) {
+        fetchOptions("{% url 'get_itl3' %}", { itl2_code: itl2Select.value }, itl3Select, "{{ request.GET.itl3|default:'' }}", lauSelect);
+    }
+    if (itl3Select.value) {
+        fetchOptions("{% url 'get_lau' %}", { itl3_code: itl3Select.value }, lauSelect, "{{ request.GET.lau|default:'' }}");
+    }
 });
-</script>
+
+
+
+    </script>
+    
 {% endblock %}
